@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WTM 2026 — מנהל מרוץ</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <div>
+          <p class="eyebrow">מערכת ניהול מרוץ</p>
+          <h1 id="race-name">WTM 2026</h1>
+        </div>
+        <div class="header-actions">
+          <p id="race-status" class="status-pill">טוען...</p>
+          <button id="finish-race-btn" type="button" class="btn btn-danger">סיים מרוץ</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel" id="break-panel" hidden>
+          <h2>הפסקה בין הקפות</h2>
+          <p class="break-timer" id="break-timer">—</p>
+          <button id="close-break-btn" type="button" class="btn">סגור הפסקה</button>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>בדיקת ציוד</h2>
+            <label class="toggle">
+              <input id="gear-toggle" type="checkbox" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p id="gear-status">בדיקת ציוד: כבויה</p>
+        </section>
+
+        <section class="panel panel-wide">
+          <div class="panel-header">
+            <h2>לוח זמנים</h2>
+          </div>
+          <div class="table-wrap">
+            <table class="schedule-table">
+              <thead>
+                <tr>
+                  <th>מספר</th>
+                  <th>שם</th>
+                  <th>הקפות</th>
+                  <th>הקפה אחרונה</th>
+                  <th>סטטוס</th>
+                  <th>פעולות</th>
+                </tr>
+              </thead>
+              <tbody id="schedule-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>הגדרות</h2>
+          <form id="settings-form" class="settings-form">
+            <label>
+              שם המרוץ
+              <input id="settings-race-name" type="text" />
+            </label>
+            <label>
+              אורך הקפה (ק"מ)
+              <input id="lap-distance" type="number" step="0.001" min="0" />
+            </label>
+            <label>
+              משך הפסקה (דקות)
+              <input id="break-minutes" type="number" min="0" />
+            </label>
+            <label>
+              סך הקפות
+              <input id="total-laps" type="number" min="1" />
+            </label>
+            <button type="submit" class="btn btn-primary">שמור הגדרות</button>
+          </form>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
