@@ -1,6 +1,8 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "races": {
+      ".read": true, 
+      ".write": true 
+    }
   }
 }

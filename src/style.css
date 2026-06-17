@@ -75,6 +75,84 @@ h2 {
   font-weight: 600;
 }
 
+.role-badge {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.role-admin {
+  background: #dcfce7;
+  color: var(--success);
+}
+
+.role-viewer {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+body:not(.is-admin) .admin-only,
+body:not(.is-admin) .btn-danger {
+  display: none !important;
+}
+
+.role-toggle {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.45;
+}
+
+.role-toggle:hover {
+  opacity: 1;
+}
+
+.cell-select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  text-align: right;
+  font: inherit;
+}
+
+.relay-bibs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-relay-bib {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  min-width: 44px;
+}
+
+.btn-relay-bib.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.variance-ahead {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.variance-behind {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.variance-neutral {
+  color: #94a3b8;
+}
+
 .layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -140,6 +218,25 @@ h2 {
   border-radius: 8px;
   background: #fff;
   text-align: right;
+}
+
+.schedule-table tr.row-running td {
+  background: #eff6ff;
+}
+
+.status-running {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.gear-active {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.status-finished {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .actions {
