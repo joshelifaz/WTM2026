@@ -1,3 +1,4 @@
+import "./style.css";
 import { store } from "./store.js";
 import { GEAR_DATA, LOGISTICS_DATA, ADMIN_PIN } from "./data.js";
 
@@ -382,6 +383,82 @@ function fmtDurSec(sec) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function getTargetLapMs() {
+  return (state.settings?.targetLap ?? state.settings?.lapPaceMin ?? 143) * 60000;
+}
+
+function getTargetPitMs() {
+  return (state.settings?.targetPit ?? 5) * 60000;
+}
+
+function fmtDeltaBadge(deltaMs) {
+  const sign = deltaMs < 0 ? "-" : "+";
+  const cls = deltaMs < 0 ? "delta-badge-fast" : "delta-badge-slow";
+  const totalSec = Math.floor(Math.abs(deltaMs) / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const timeStr =
+    h > 0
+      ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+      : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `<span class="delta-badge ${cls}">(${sign}${timeStr})</span>`;
+}
+
+function calculateCumulativeDelta() {
+  const lapLog = getLapLog();
+  const targetLapMs = getTargetLapMs();
+  const targetPitMs = getTargetPitMs();
+  let actualTotal = 0;
+  let expectedTotal = 0;
+  let completedLaps = 0;
+
+  for (const lap of lapLog) {
+    if (lap.lapStart && lap.lapEnd) {
+      actualTotal += lap.lapEnd - lap.lapStart;
+      expectedTotal += targetLapMs;
+      completedLaps++;
+    }
+    if (lap.lapEnd && lap.breakEnd) {
+      actualTotal += lap.breakEnd - lap.lapEnd;
+      expectedTotal += targetPitMs;
+    }
+  }
+
+  return { deltaMs: actualTotal - expectedTotal, completedLaps };
+}
+
+function renderPaceStatus() {
+  const card = document.getElementById("pace-status-card");
+  const text = document.getElementById("pace-status-text");
+  if (!card || !text) return;
+
+  if (!state.raceStarted) {
+    card.className = "neutral";
+    text.textContent = "טרם התחיל";
+    return;
+  }
+
+  const { deltaMs, completedLaps } = calculateCumulativeDelta();
+  if (completedLaps === 0) {
+    card.className = "neutral";
+    text.textContent = "אין סיבובים מושלמים עדיין";
+    return;
+  }
+
+  const deltaMin = Math.round(Math.abs(deltaMs) / 60000);
+  if (deltaMs < 0) {
+    card.className = "ahead";
+    text.textContent = `🟢 מקדים את התוכנית ב-${deltaMin} דקות`;
+  } else if (deltaMs > 0) {
+    card.className = "behind";
+    text.textContent = `🔴 בפיגור של ${deltaMin} דקות`;
+  } else {
+    card.className = "ahead";
+    text.textContent = "🟢 בדיוק בקצב התוכנית";
+  }
+}
+
 // ══════════════════════════════════════════════════════
 // CLOCK TICK
 // ══════════════════════════════════════════════════════
@@ -466,6 +543,54 @@ function setMode(m) {
   });
   document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
   document.getElementById("view-" + m).classList.add("active");
+  closeSideDrawer();
+}
+
+// ══════════════════════════════════════════════════════
+// SIDE DRAWER
+// ══════════════════════════════════════════════════════
+function openSideDrawer() {
+  const drawer = document.getElementById("side-drawer");
+  const overlay = document.getElementById("drawer-overlay");
+  const toggle = document.getElementById("menu-toggle");
+  if (!drawer || !overlay || !toggle) return;
+
+  drawer.classList.add("open");
+  overlay.classList.add("open");
+  drawer.setAttribute("aria-hidden", "false");
+  overlay.setAttribute("aria-hidden", "false");
+  toggle.setAttribute("aria-expanded", "true");
+  toggle.setAttribute("aria-label", "Close menu");
+  document.body.classList.add("drawer-open");
+}
+
+function closeSideDrawer() {
+  const drawer = document.getElementById("side-drawer");
+  const overlay = document.getElementById("drawer-overlay");
+  const toggle = document.getElementById("menu-toggle");
+  if (!drawer || !overlay || !toggle) return;
+
+  drawer.classList.remove("open");
+  overlay.classList.remove("open");
+  drawer.setAttribute("aria-hidden", "true");
+  overlay.setAttribute("aria-hidden", "true");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-label", "Open menu");
+  document.body.classList.remove("drawer-open");
+}
+
+function initSideDrawer() {
+  const toggle = document.getElementById("menu-toggle");
+  const overlay = document.getElementById("drawer-overlay");
+  if (!toggle || !overlay) return;
+
+  toggle.addEventListener("click", () => {
+    const drawer = document.getElementById("side-drawer");
+    if (drawer?.classList.contains("open")) closeSideDrawer();
+    else openSideDrawer();
+  });
+
+  overlay.addEventListener("click", closeSideDrawer);
 }
 
 // ══════════════════════════════════════════════════════
@@ -548,7 +673,9 @@ function renderLapLog() {
       '<div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div>';
     return;
   }
-  const targetMs = state.settings.lapPaceMin * 60000;
+
+  const targetLapMs = getTargetLapMs();
+  const targetPitMs = getTargetPitMs();
   let prevLapMs = null;
   let html = "";
 
@@ -556,10 +683,7 @@ function renderLapLog() {
     if (!lap.lapStart || !lap.lapEnd) return;
 
     const lapMs = lap.lapEnd - lap.lapStart;
-    const breakMs = lap.breakEnd ? lap.breakEnd - lap.lapEnd : null;
-    const deltaMs = lapMs - targetMs;
-    const deltaSign = deltaMs < 0 ? "-" : "+";
-    const deltaCls = deltaMs < 0 ? "delta-pos" : "delta-neg";
+    const lapDeltaBadge = fmtDeltaBadge(lapMs - targetLapMs);
     let vsPrev = "";
     let prBadge = "";
     if (prevLapMs !== null) {
@@ -574,16 +698,22 @@ function renderLapLog() {
         <span style="font-weight:900;color:var(--rust)">סיבוב ${lap.lapNum}</span>
         <span class="mono">${fmtHHMM(lap.lapStart)}</span>
         <span class="mono">${fmtHHMM(lap.lapEnd)}</span>
-        <span class="mono">${prBadge}${fmtDurMs(lapMs)}${vsPrev}</span>
-        <span class="${deltaCls} mono">${deltaSign}${fmtDurMs(Math.abs(deltaMs))}</span>
+        <span class="mono">${prBadge}${fmtDurMs(lapMs)}${lapDeltaBadge}${vsPrev}</span>
+        <span></span>
       </div>
     </div>`;
-    if (breakMs !== null || lap.breakEnd === null) {
+
+    if (lap.lapEnd) {
+      const breakMs = lap.breakEnd ? lap.breakEnd - lap.lapEnd : null;
+      const breakDuration = lap.breakEnd
+        ? `${fmtDurMs(breakMs)}${fmtDeltaBadge(breakMs - targetPitMs)}`
+        : '<span class="blink">מתמשך...</span>';
+
       html += `<div class="lap-log-break">
         <span>⏸ הפסקה</span>
         <span class="mono">${fmtHHMM(lap.lapEnd)}</span>
-        <span class="mono">${fmtHHMM(lap.breakEnd)}</span>
-        <span class="mono">${lap.breakEnd ? fmtDurMs(lap.breakEnd - lap.lapEnd) : '<span class="blink">מתמשך...</span>'}</span>
+        <span class="mono">${lap.breakEnd ? fmtHHMM(lap.breakEnd) : "—"}</span>
+        <span class="mono">${breakDuration}</span>
         <span></span>
       </div>`;
     }
@@ -717,6 +847,8 @@ function saveSettings() {
     targetLaps: parseInt(document.getElementById("setting-laps").value) || 10,
     lapDist: parseFloat(document.getElementById("setting-dist").value) || 8,
     lapPaceMin: parseInt(document.getElementById("setting-pace").value) || 144,
+    targetLap: parseInt(document.getElementById("setting-target-lap").value) || 143,
+    targetPit: parseInt(document.getElementById("setting-target-pit").value) || 5,
     durationHours: parseInt(document.getElementById("setting-duration").value) || 25,
   });
   alert("✅ הגדרות נשמרו!");
@@ -748,6 +880,7 @@ function renderAll() {
   updateLockBadge();
   updateActionButtons();
   updateFinishRaceButton();
+  renderPaceStatus();
 }
 
 function updateFinishRaceButton() {
@@ -847,6 +980,9 @@ function updateStateAndRender(remote) {
   document.getElementById("setting-laps").value = state.settings.targetLaps;
   document.getElementById("setting-dist").value = state.settings.lapDist || 8;
   document.getElementById("setting-pace").value = state.settings.lapPaceMin;
+  document.getElementById("setting-target-lap").value =
+    state.settings.targetLap ?? state.settings.lapPaceMin ?? 143;
+  document.getElementById("setting-target-pit").value = state.settings.targetPit ?? 5;
   document.getElementById("setting-duration").value = state.settings.durationHours;
 
   renderAll();
@@ -860,6 +996,7 @@ function updateStateAndRender(remote) {
 function initApp() {
   applyRoleUI();
   initDarkMode();
+  initSideDrawer();
   updateConnectionStatus();
 
   window.addEventListener("online", updateConnectionStatus);
@@ -870,29 +1007,30 @@ function initApp() {
   }
 }
 
+function exposeUiGlobals() {
+  window.pinKey = pinKey;
+  window.pinDel = pinDel;
+  window.enterAsViewer = enterAsViewer;
+  window.lockApp = lockApp;
+  window.setMode = setMode;
+  window.btnStartClick = btnStartClick;
+  window.btnFinishClick = btnFinishClick;
+  window.resetRace = resetRace;
+  window.toggleGear = toggleGear;
+  window.toggleLogistics = toggleLogistics;
+  window.openEditor = openEditor;
+  window.closeEditor = closeEditor;
+  window.saveEdit = saveEdit;
+  window.saveSettings = saveSettings;
+  window.exportData = exportData;
+  window.clearData = clearData;
+  window.finishRaceClick = finishRaceClick;
+  window.closeFinishModal = closeFinishModal;
+  window.finishKey = finishKey;
+  window.finishDel = finishDel;
+  window.toggleDarkMode = toggleDarkMode;
+}
+
+exposeUiGlobals();
 store.subscribe(updateStateAndRender);
 initApp();
-
-Object.assign(window, {
-  pinKey,
-  pinDel,
-  enterAsViewer,
-  lockApp,
-  setMode,
-  btnStartClick,
-  btnFinishClick,
-  resetRace,
-  toggleGear,
-  toggleLogistics,
-  openEditor,
-  closeEditor,
-  saveEdit,
-  saveSettings,
-  exportData,
-  clearData,
-  finishRaceClick,
-  closeFinishModal,
-  finishKey,
-  finishDel,
-  toggleDarkMode,
-});

@@ -38,6 +38,8 @@ function createDefaultState() {
     settings: {
       targetLaps: 10,
       lapPaceMin: 144,
+      targetLap: 143,
+      targetPit: 5,
       durationHours: 25,
       lapDist: 8,
     },

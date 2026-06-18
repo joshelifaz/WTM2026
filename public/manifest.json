@@ -1,0 +1,20 @@
+{
+  "name": "MudLog - WTM 2026",
+  "short_name": "MudLog",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e2d48",
+  "theme_color": "#e05a1b",
+  "icons": [
+    {
+      "src": "/logo192D.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo512D.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WTM 2026 – מנהל מרוץ</title>
+<title>MudLog — מערכת ניהול מרוץ</title>
+<link rel="icon" type="image/png" href="/logo192T.png">
+<link rel="apple-touch-icon" href="/logo192D.png">
+<link rel="manifest" href="/manifest.json">
+<meta property="og:title" content="MudLog">
+<meta property="og:description" content="מערכת ניהול מרוץ בזמן אמת - World's Toughest Mudder 2026">
+<meta property="og:image" content="https://wtm2026-fb982.web.app/logo512D.png">
+<meta property="og:type" content="website">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
   :root {
@@ -46,10 +53,9 @@
   .pin-error{color:var(--danger);font-size:0.8rem;min-height:18px;}
   .pin-viewer-btn{color:var(--ice);font-size:0.78rem;cursor:pointer;text-decoration:underline;margin-top:8px;}
 
-  /* HEADER */
-  #app-header{background:linear-gradient(135deg,var(--header-from),var(--header-to));border-bottom:none;box-shadow:0 2px 16px rgba(0,0,0,.18);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:12px;flex-wrap:wrap;}
-  .header-title{font-size:1.1rem;font-weight:800;letter-spacing:.04em;color:#ffffff;white-space:nowrap;font-family:'Inter',sans-serif;}
-  .header-sub{font-size:.68rem;color:rgba(255,255,255,.5);font-family:'Fira Code',monospace;letter-spacing:.04em;}
+  /* HEADER — layout in style.css; theme tokens here */
+  #app-header{background:linear-gradient(135deg,var(--header-from),var(--header-to));border-bottom:none;box-shadow:0 2px 16px rgba(0,0,0,.18);position:sticky;top:0;z-index:100;}
+  .header-sub{font-size:.68rem;color:rgba(255,255,255,.55);font-family:'Fira Code',monospace;letter-spacing:.04em;unicode-bidi:isolate;}
   .lock-badge{font-size:.65rem;padding:3px 8px;border-radius:10px;border:1px solid;cursor:pointer;}
   .lock-badge.editor{border-color:#6ee7b7;color:#6ee7b7;background:rgba(110,231,183,.1);}
   .lock-badge.viewer{border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.6);background:rgba(255,255,255,.08);}
@@ -94,6 +100,17 @@
   #pace-indicator.ahead{background:#f0fdf4;border:1px solid #86efac;color:#15803d;}
   #pace-indicator.behind{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;}
   #pace-indicator.ontrack{background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;}
+
+  /* PACE STATUS & DELTA BADGES */
+  #pace-status-card{background:#ffffff;border:1px solid var(--border);border-bottom:none;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.82rem;font-weight:600;}
+  .pace-status-title{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:700;white-space:nowrap;}
+  .pace-status-text{font-weight:700;line-height: 1;}
+  #pace-status-card.ahead{background:#f0fdf4;border-color:#86efac;color:#15803d;}
+  #pace-status-card.behind{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
+  #pace-status-card.neutral{background:#f8fafc;border-color:var(--border);color:var(--text2);}
+  .delta-badge{font-size:.68rem;font-weight:700;margin-inline-start:6px;font-family:'Fira Code',monospace;white-space:nowrap;}
+  .delta-badge-fast{color:var(--lime);}
+  .delta-badge-slow{color:var(--danger);}
 
   /* MAIN */
   #main-content{padding:16px 20px;background:var(--bg);}
@@ -238,10 +255,6 @@
   body.view-only #action-area { display: none; }
   body.view-only .gear-item { cursor: default; pointer-events: none; }
 
-  /* CONNECTION STATUS */
-  #connection-status{position:absolute;top:10px;right:12px;font-size:.62rem;font-weight:600;padding:3px 8px;border-radius:10px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);white-space:nowrap;font-family:'Inter',sans-serif;}
-  #connection-status.offline{background:rgba(220,38,38,.25);color:#fecaca;}
-
   /* DARK MODE */
   body.dark-mode{
     --bg:#0f1419;
@@ -263,6 +276,10 @@
   body.dark-mode #race-clock-bar,
   body.dark-mode #action-area,
   body.dark-mode #progress-section{background:var(--surface);border-color:var(--border);}
+  body.dark-mode #pace-status-card{background:var(--surface);border-color:var(--border);}
+  body.dark-mode #pace-status-card.ahead{background:#14291f;border-color:#166534;color:#86efac;}
+  body.dark-mode #pace-status-card.behind{background:#2a1515;border-color:#991b1b;color:#fca5a5;}
+  body.dark-mode #pace-status-card.neutral{background:#141c2b;color:var(--text2);}
   body.dark-mode .current-card,
   body.dark-mode .lap-log,
   body.dark-mode .settings-section,
@@ -313,13 +330,23 @@
 </div>
 
 <!-- HEADER -->
-<div id="app-header">
-  <div id="connection-status">🟢 Online</div>
-  <div>
-    <div class="header-title">⚡ WTM 2026</div>
-    <div class="header-sub" id="header-sub">World's Toughest Mudder · 27-28 יוני</div>
+<header id="app-header">
+  <div class="header-left">
+    <button type="button" id="menu-toggle" class="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="side-drawer">☰</button>
   </div>
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  <div class="header-center">
+    <img src="/logo192T.png" alt="MudLog" class="header-logo">
+    <div class="header-sub" id="header-sub" dir="ltr">World's Toughest Mudder - June 27-28</div>
+  </div>
+  <div class="header-right">
+    <div id="connection-status">🟢 Online</div>
+  </div>
+</header>
+
+<!-- SIDE DRAWER -->
+<div id="drawer-overlay" class="drawer-overlay" aria-hidden="true"></div>
+<aside id="side-drawer" class="side-drawer" aria-hidden="true">
+  <div class="header-actions">
     <div class="lock-badge viewer" id="lock-badge" onclick="lockApp()">🔒 צופה</div>
     <div id="mode-tabs">
       <button class="mode-btn active" onclick="setMode('manager')">📋 מנהל</button>
@@ -328,7 +355,11 @@
       <button class="mode-btn" onclick="setMode('settings')">⚙️</button>
     </div>
   </div>
-</div>
+  <div class="drawer-branding">
+    <img src="/israel_flag.png" alt="Israel" class="drawer-brand-logo">
+    <img src="/logowtm.png" alt="WTM" class="drawer-brand-logo">
+  </div>
+</aside>
 
 <!-- RACE CLOCK -->
 <div id="race-clock-bar">
@@ -373,6 +404,12 @@
     <div class="progress-pct" id="laps-pct">0/10</div>
   </div>
   <div id="pace-indicator" class="ontrack"><span>📍</span><span id="pace-text">טרם התחיל</span></div>
+</div>
+
+<!-- PACE STATUS -->
+<div id="pace-status-card" class="neutral">
+  <div class="pace-status-title">סטטוס קצב</div>
+  <div id="pace-status-text" class="pace-status-text">טרם התחיל</div>
 </div>
 
 <!-- MAIN -->
@@ -513,6 +550,8 @@
         <div class="form-group settings-admin-only"><label>יעד סיבובים</label><input type="number" id="setting-laps" value="10" min="1" max="20"></div>
         <div class="form-group settings-admin-only"><label>מרחק סיבוב בפועל (ק"מ)</label><input type="number" id="setting-dist" value="8" step="0.1" min="1" max="20"></div>
         <div class="form-group settings-admin-only"><label>קצב יעד לסיבוב (דק')</label><input type="number" id="setting-pace" value="144"></div>
+        <div class="form-group settings-admin-only"><label>זמן יעד לסיבוב (דק')</label><input type="number" id="setting-target-lap" value="143" min="1" step="1"></div>
+        <div class="form-group settings-admin-only"><label>זמן יעד לתחנה (דק')</label><input type="number" id="setting-target-pit" value="5" min="0" step="1"></div>
         <div class="form-group settings-admin-only"><label>משך תחרות (שע)</label><input type="number" id="setting-duration" value="25"></div>
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
