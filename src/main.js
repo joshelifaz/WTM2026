@@ -2,6 +2,23 @@ import "./style.css";
 import { store } from "./store.js";
 import { GEAR_DATA, LOGISTICS_DATA, ADMIN_PIN } from "./data.js";
 
+/** Layout-agnostic DOM accessors */
+function target(name) {
+  return document.querySelector(`[data-target="${name}"]`);
+}
+
+function targets(name) {
+  return document.querySelectorAll(`[data-target="${name}"]`);
+}
+
+function action(name) {
+  return document.querySelector(`[data-action="${name}"]`);
+}
+
+function viewEl(mode) {
+  return document.querySelector(`[data-view="${mode}"]`);
+}
+
 const ADMIN_PIN_KEY = "wtm_admin_pin";
 const DARK_MODE_KEY = "wtm_dark_mode";
 const EDITOR_SESSION_KEY = "wtm_editor";
@@ -21,6 +38,7 @@ function setAdminPin(pin) {
 let state = {
   isEditor: false,
   mode: "manager",
+  managerTab: "dashboard",
   editingId: null,
 };
 
@@ -32,7 +50,7 @@ function applyRoleUI() {
   document.body.classList.toggle("view-only", !admin);
 
   if (!admin) {
-    document.querySelector(".editor-panel")?.classList.remove("open");
+    target("editor-panel")?.classList.remove("open");
     state.editingId = null;
   }
 
@@ -40,30 +58,38 @@ function applyRoleUI() {
 }
 
 function updateConnectionStatus() {
-  const el = document.getElementById("connection-status");
+  const el = target("connection-status");
   if (!el) return;
   const online = navigator.onLine;
   el.textContent = online ? "🟢 Online" : "🔴 Offline";
   el.classList.toggle("offline", !online);
 }
 
+function syncThemeAttribute() {
+  const dark = document.body.classList.contains("dark-mode");
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+}
+
 function initDarkMode() {
   if (localStorage.getItem(DARK_MODE_KEY) === "1") {
     document.body.classList.add("dark-mode");
   }
+  syncThemeAttribute();
   updateDarkModeButton();
 }
 
 function updateDarkModeButton() {
-  const btn = document.getElementById("dark-mode-btn");
-  if (!btn) return;
   const dark = document.body.classList.contains("dark-mode");
-  btn.textContent = dark ? "☀️ מצב בהיר" : "🌙 מצב כהה";
+  const themeBtn = action("toggle-theme");
+  if (themeBtn) themeBtn.textContent = dark ? "🌙 תצוגה בהירה/כהה" : "🌓 תצוגה בהירה/כהה";
+  const settingsBtn = action("toggle-theme-settings");
+  if (settingsBtn) settingsBtn.textContent = dark ? "☀️ מצב בהיר" : "🌙 מצב כהה";
 }
 
 function toggleDarkMode() {
   document.body.classList.toggle("dark-mode");
   localStorage.setItem(DARK_MODE_KEY, document.body.classList.contains("dark-mode") ? "1" : "0");
+  syncThemeAttribute();
   updateDarkModeButton();
 }
 
@@ -103,7 +129,9 @@ function pinDel() {
 
 function updatePinDots() {
   for (let i = 0; i < 4; i++) {
-    document.getElementById("d" + i).classList.toggle("filled", i < pinBuffer.length);
+    document
+      .querySelector(`[data-target="pin-dot"][data-index="${i}"]`)
+      ?.classList.toggle("filled", i < pinBuffer.length);
   }
 }
 
@@ -113,10 +141,10 @@ function pinSubmit() {
     sessionStorage.setItem(EDITOR_SESSION_KEY, "1");
     hidePinOverlay();
   } else {
-    document.getElementById("pin-error").textContent = "❌ קוד שגוי";
+    target("pin-error").textContent = "❌ קוד שגוי";
     pinBuffer = "";
     updatePinDots();
-    setTimeout(() => (document.getElementById("pin-error").textContent = ""), 1500);
+    setTimeout(() => (target("pin-error").textContent = ""), 1500);
   }
 }
 
@@ -125,37 +153,46 @@ function enterAsViewer() {
 }
 
 function hidePinOverlay() {
-  document.getElementById("pin-overlay").classList.add("hidden");
+  target("login-screen").classList.add("hidden");
+  target("main-app")?.classList.remove("hidden");
   applyRoleUI();
   renderAll();
 }
 
 function lockApp() {
   if (!isAdmin()) {
-    document.getElementById("pin-overlay").classList.remove("hidden");
+    target("login-screen").classList.remove("hidden");
+    target("main-app")?.classList.add("hidden");
     pinBuffer = "";
     updatePinDots();
-    document.getElementById("pin-error").textContent = "";
+    target("pin-error").textContent = "";
   } else {
     sessionStorage.removeItem(EDITOR_SESSION_KEY);
+    state.isEditor = false;
     applyRoleUI();
     renderAll();
   }
 }
 
+function logout() {
+  closeKebabMenu();
+  target("main-app")?.classList.add("hidden");
+  target("login-screen")?.classList.remove("hidden");
+  pinBuffer = "";
+  updatePinDots();
+  target("pin-error").textContent = "";
+  const pinInput = target("setting-admin-pin");
+  if (pinInput) pinInput.value = "";
+  sessionStorage.removeItem(EDITOR_SESSION_KEY);
+  state.isEditor = false;
+  applyRoleUI();
+}
+
 function updateLockBadge() {
-  const b = document.getElementById("lock-badge");
-  if (isAdmin()) {
-    b.className = "lock-badge editor";
-    b.textContent = "✏️ עורך";
-  } else {
-    b.className = "lock-badge viewer";
-    b.textContent = "🔒 צופה";
-  }
-  document.getElementById("btn-start").disabled = !isAdmin() || state.raceFinished;
-  document.getElementById("btn-finish").disabled =
+  action("start-lap").disabled = !isAdmin() || state.raceFinished;
+  action("finish-lap").disabled =
     !isAdmin() || !state.raceStarted || state.currentLapEnd !== null || state.raceFinished;
-  document.getElementById("btn-reset").disabled = !isAdmin();
+  action("reset-race").disabled = !isAdmin();
 }
 
 // ══════════════════════════════════════════════════════
@@ -172,15 +209,86 @@ function btnFinishClick() {
   store.btnFinishClick();
 }
 
+function resetRaceClockUI() {
+  target("lap-duration").textContent = "--:--";
+  target("break-clock").textContent = "--:--";
+  target("break-timer-value").textContent = "0:00";
+  target("break-timer-display")?.classList.add("is-collapsed");
+  target("expected-return").textContent = "--:--";
+}
+
+function resetRaceProgressUI() {
+  target("time-progress-bar").innerHTML = "";
+  target("laps-progress-bar").innerHTML = "";
+  target("time-progress-pct").textContent = "0%";
+  target("laps-progress-pct").textContent = `0/${state.settings?.targetLaps || 10}`;
+
+  const pi = target("pace-indicator");
+  const pt = target("pace-indicator-text");
+  if (pi) pi.className = "pace-indicator ontrack";
+  if (pt) pt.textContent = "טרם התחיל";
+
+  const ring = target("ring-time-progress");
+  if (ring) ring.style.strokeDashoffset = String(2 * Math.PI * 35);
+  target("ring-pct").textContent = "0%";
+  target("ring-meta-time").textContent = "0%";
+  target("ring-meta-laps").textContent = `0 / ${state.settings?.targetLaps || 10}`;
+  target("ring-meta-km").textContent = '0 ק"מ';
+}
+
+function resetRaceLiveUI() {
+  target("live-laps-count").textContent = "0";
+  target("live-km-total").textContent = "0.0";
+  target("live-status-icon").textContent = "🏕️";
+  target("live-timeline").innerHTML =
+    '<div style="color:var(--muted);font-size:.8rem;padding:10px">ממתין לתחילת המרוץ...</div>';
+}
+
+function resetRaceTablesUI() {
+  target("lap-log-container").innerHTML =
+    '<div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div>';
+}
+
+function applyLocalRaceReset() {
+  pendingFinishSummary = false;
+  state.lapLog = [];
+  state.currentLapNum = 0;
+  state.currentLapStart = null;
+  state.currentLapEnd = null;
+  state.breakStart = null;
+  state.raceStarted = false;
+  state.raceFinished = false;
+  state.raceFinishedAt = null;
+  state.gearChecked = {};
+  state.logisticsChecked = {};
+}
+
+function resetRaceUI() {
+  resetRaceClockUI();
+  resetRaceProgressUI();
+  resetRaceLiveUI();
+  resetRaceTablesUI();
+}
+
 function resetRace() {
   if (!isAdmin()) return;
   if (!confirm("לאפס את כל נתוני המרוץ?")) return;
-  store.resetRace();
+
+  applyLocalRaceReset();
+  resetRaceUI();
+  updateActionButtons();
+  updateFinishRaceButton();
+  renderAll();
+
+  store.resetRace().catch((err) => {
+    console.error("resetRace failed:", err);
+    alert("שגיאה באיפוס המרוץ. בדוק חיבור לרשת.");
+  });
 }
 
 function updateActionButtons() {
-  const s = document.getElementById("btn-start");
-  const f = document.getElementById("btn-finish");
+  const s = action("start-lap");
+  const f = action("finish-lap");
 
   if (state.raceFinished) {
     s.disabled = true;
@@ -202,7 +310,7 @@ function updateActionButtons() {
   }
 
   s.disabled = !isAdmin() || state.raceFinished;
-  document.getElementById("btn-reset").disabled = !isAdmin();
+  action("reset-race").disabled = !isAdmin();
 }
 
 // ══════════════════════════════════════════════════════
@@ -278,8 +386,8 @@ function buildTimelineSegments(now = Date.now()) {
   return { segments, raceMs, raceStart, elapsedPct };
 }
 
-function renderSegmentBar(containerId, segments, raceMs, filterType = null) {
-  const bar = document.getElementById(containerId);
+function renderSegmentBar(targetName, segments, raceMs, filterType = null) {
+  const bar = target(targetName);
   if (!bar) return;
 
   const filtered = filterType ? segments.filter((seg) => seg.type === filterType) : segments;
@@ -298,31 +406,31 @@ function renderSegmentBar(containerId, segments, raceMs, filterType = null) {
 
 function renderProgressBars(now = Date.now()) {
   if (!state.raceStarted) {
-    document.getElementById("time-progress").innerHTML = "";
-    document.getElementById("laps-progress").innerHTML = "";
-    document.getElementById("time-pct").textContent = "0%";
-    document.getElementById("laps-pct").textContent = `0/${state.settings?.targetLaps || 10}`;
+    target("time-progress-bar").innerHTML = "";
+    target("laps-progress-bar").innerHTML = "";
+    target("time-progress-pct").textContent = "0%";
+    target("laps-progress-pct").textContent = `0/${state.settings?.targetLaps || 10}`;
     return;
   }
 
   const { segments, raceMs, raceStart, elapsedPct } = buildTimelineSegments(now);
-  renderSegmentBar("time-progress", segments, raceMs);
-  renderSegmentBar("laps-progress", segments, raceMs, "lap");
+  renderSegmentBar("time-progress-bar", segments, raceMs);
+  renderSegmentBar("laps-progress-bar", segments, raceMs, "lap");
 
-  document.getElementById("time-pct").textContent = `${Math.round(elapsedPct)}%`;
+  target("time-progress-pct").textContent = `${Math.round(elapsedPct)}%`;
 
   const lapsDone = getLapLog().filter((lap) => lap.breakEnd).length;
-  document.getElementById("laps-pct").textContent = `${lapsDone}/${state.settings.targetLaps}`;
+  target("laps-progress-pct").textContent = `${lapsDone}/${state.settings.targetLaps}`;
 }
 
 function updateCurrentLapCard() {
-  const badge = document.getElementById("current-lap-badge");
-  const foodEl = document.getElementById("cur-food");
-  const drinkEl = document.getElementById("cur-drink");
-  const suppsEl = document.getElementById("cur-supps");
-  const gearEl = document.getElementById("cur-gear");
-  const noteEl = document.getElementById("cur-note");
-  const nextStrip = document.getElementById("next-lap-strip");
+  const badge = target("current-lap-badge");
+  const foodEl = target("current-food");
+  const drinkEl = target("current-drink");
+  const suppsEl = target("current-supps");
+  const gearEl = target("current-gear");
+  const noteEl = target("current-note");
+  const nextStrip = target("next-lap-strip");
 
   if (!state.raceStarted || !state.currentLapNum) {
     badge.textContent = "סיבוב —";
@@ -353,9 +461,9 @@ function updateCurrentLapCard() {
 
   const nextRow = findScheduleRowForLap(managerLap + 1);
   if (nextRow) {
-    document.getElementById("next-lap-num").textContent = nextRow.lap;
+    target("next-lap-number").textContent = nextRow.lap;
     const parts = [nextRow.food, nextRow.drink, nextRow.supps].filter(Boolean).join(" · ");
-    document.getElementById("next-lap-content").textContent = parts || "—";
+    target("next-lap-content").textContent = parts || "—";
     nextStrip.style.display = "flex";
   } else {
     nextStrip.style.display = "none";
@@ -429,8 +537,8 @@ function calculateCumulativeDelta() {
 }
 
 function renderPaceStatus() {
-  const card = document.getElementById("pace-status-card");
-  const text = document.getElementById("pace-status-text");
+  const card = target("pace-status");
+  const text = target("pace-status-text");
   if (!card || !text) return;
 
   if (!state.raceStarted) {
@@ -467,7 +575,7 @@ setInterval(tick, 1000);
 function tick() {
   const now = Date.now();
   const d = new Date(now);
-  document.getElementById("clock-now").textContent =
+  target("live-timer").textContent =
     String(d.getHours()).padStart(2, "0") +
     ":" +
     String(d.getMinutes()).padStart(2, "0") +
@@ -475,35 +583,36 @@ function tick() {
     String(d.getSeconds()).padStart(2, "0");
 
   if (!state.raceStarted) {
+    resetRaceClockUI();
     return;
   }
 
   const lapLog = getLapLog();
 
   if (state.currentLapEnd === null && state.currentLapStart) {
-    document.getElementById("clock-lap-dur").textContent = fmtDurMs(now - state.currentLapStart);
+    target("lap-duration").textContent = fmtDurMs(now - state.currentLapStart);
   } else {
     const lastLap = lapLog[lapLog.length - 1];
     if (lastLap && lastLap.lapEnd)
-      document.getElementById("clock-lap-dur").textContent = fmtDurMs(lastLap.lapEnd - lastLap.lapStart);
+      target("lap-duration").textContent = fmtDurMs(lastLap.lapEnd - lastLap.lapStart);
   }
 
   if (state.breakStart && state.currentLapEnd !== null) {
     const brk = Math.floor((now - state.breakStart) / 1000);
-    document.getElementById("clock-break").textContent = fmtDurSec(brk);
-    document.getElementById("break-display").style.display = "flex";
-    document.getElementById("break-clock").textContent = fmtDurSec(brk);
+    target("break-clock").textContent = fmtDurSec(brk);
+    target("break-timer-display").classList.remove("is-collapsed");
+    target("break-timer-value").textContent = fmtDurSec(brk);
   } else {
-    document.getElementById("clock-break").textContent = "--:--";
-    document.getElementById("break-display").style.display = "none";
+    target("break-clock").textContent = "--:--";
+    target("break-timer-display").classList.add("is-collapsed");
   }
 
   if (state.currentLapStart && state.currentLapEnd === null) {
     const expReturn = new Date(state.currentLapStart + state.settings.lapPaceMin * 60000);
-    document.getElementById("clock-return").textContent =
+    target("expected-return").textContent =
       String(expReturn.getHours()).padStart(2, "0") + ":" + String(expReturn.getMinutes()).padStart(2, "0");
   } else {
-    document.getElementById("clock-return").textContent = "--:--";
+    target("expected-return").textContent = "--:--";
   }
 
   const raceStart = lapLog.length > 0 ? lapLog[0].lapStart : state.currentLapStart || now;
@@ -515,8 +624,8 @@ function tick() {
 
   const expectedLaps = elapsed / (state.settings.lapPaceMin * 60000);
   const diff = lapsDone - expectedLaps;
-  const pi = document.getElementById("pace-indicator");
-  const pt = document.getElementById("pace-text");
+  const pi = target("pace-indicator");
+  const pt = target("pace-indicator-text");
   if (diff > 0.3) {
     pi.className = "pace-indicator ahead";
     pt.textContent = `⬆ ${diff.toFixed(1)} סיבוב קדימה ביעד`;
@@ -528,69 +637,89 @@ function tick() {
     pt.textContent = "✓ בדיוק בקצב";
   }
 
-  document.getElementById("live-laps").textContent = lapsDone;
-  document.getElementById("live-km").textContent = (lapsDone * (state.settings.lapDist || 8)).toFixed(1);
-  document.getElementById("live-status").textContent = state.currentLapEnd === null ? "🏃" : "🏕️";
+  target("live-laps-count").textContent = lapsDone;
+  target("live-km-total").textContent = (lapsDone * (state.settings.lapDist || 8)).toFixed(1);
+  target("live-status-icon").textContent = state.currentLapEnd === null ? "🏃" : "🏕️";
 }
 
 // ══════════════════════════════════════════════════════
-// MODE
+// MODE & CONTENT TABS
 // ══════════════════════════════════════════════════════
+const CONTENT_VIEWS = {
+  dashboard: "view-dashboard",
+  log: "view-log",
+  gear: "view-gear",
+};
+
+function switchTab(tab) {
+  state.managerTab = tab;
+  Object.entries(CONTENT_VIEWS).forEach(([name, targetName]) => {
+    target(targetName)?.classList.toggle("hidden", name !== tab);
+  });
+  document.querySelectorAll('[data-action="switch-tab"]').forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+}
+
+function setManagerTab(panel) {
+  switchTab(panel);
+}
+
 function setMode(m) {
   state.mode = m;
-  document.querySelectorAll(".mode-btn").forEach((b, i) => {
-    b.classList.toggle("active", ["manager", "live", "gear", "settings"][i] === m);
-  });
-  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-  document.getElementById("view-" + m).classList.add("active");
-  closeSideDrawer();
+  document.querySelectorAll("[data-view]").forEach((v) => v.classList.remove("active"));
+
+  const tabBar = target("content-tab-bar");
+  if (tabBar) tabBar.classList.toggle("hidden", m !== "manager" && m !== "gear");
+
+  if (m === "gear") {
+    viewEl("manager").classList.add("active");
+    switchTab("gear");
+    closeKebabMenu();
+    return;
+  }
+
+  viewEl(m)?.classList.add("active");
+  if (m === "manager") {
+    switchTab(state.managerTab || "dashboard");
+  }
+  closeKebabMenu();
 }
 
 // ══════════════════════════════════════════════════════
-// SIDE DRAWER
+// KEBAB MENU
 // ══════════════════════════════════════════════════════
-function openSideDrawer() {
-  const drawer = document.getElementById("side-drawer");
-  const overlay = document.getElementById("drawer-overlay");
-  const toggle = document.getElementById("menu-toggle");
-  if (!drawer || !overlay || !toggle) return;
+function openKebabMenu() {
+  const dropdown = target("kebab-dropdown");
+  const toggle = action("toggle-kebab");
+  if (!dropdown || !toggle) return;
 
-  drawer.classList.add("open");
-  overlay.classList.add("open");
-  drawer.setAttribute("aria-hidden", "false");
-  overlay.setAttribute("aria-hidden", "false");
+  dropdown.classList.add("open");
+  dropdown.setAttribute("aria-hidden", "false");
   toggle.setAttribute("aria-expanded", "true");
-  toggle.setAttribute("aria-label", "Close menu");
-  document.body.classList.add("drawer-open");
 }
 
-function closeSideDrawer() {
-  const drawer = document.getElementById("side-drawer");
-  const overlay = document.getElementById("drawer-overlay");
-  const toggle = document.getElementById("menu-toggle");
-  if (!drawer || !overlay || !toggle) return;
+function closeKebabMenu() {
+  const dropdown = target("kebab-dropdown");
+  const toggle = action("toggle-kebab");
+  if (!dropdown || !toggle) return;
 
-  drawer.classList.remove("open");
-  overlay.classList.remove("open");
-  drawer.setAttribute("aria-hidden", "true");
-  overlay.setAttribute("aria-hidden", "true");
+  dropdown.classList.remove("open");
+  dropdown.setAttribute("aria-hidden", "true");
   toggle.setAttribute("aria-expanded", "false");
-  toggle.setAttribute("aria-label", "Open menu");
-  document.body.classList.remove("drawer-open");
 }
 
-function initSideDrawer() {
-  const toggle = document.getElementById("menu-toggle");
-  const overlay = document.getElementById("drawer-overlay");
-  if (!toggle || !overlay) return;
+function initKebabMenu() {
+  const wrap = target("kebab-menu");
+  if (!wrap) return;
 
-  toggle.addEventListener("click", () => {
-    const drawer = document.getElementById("side-drawer");
-    if (drawer?.classList.contains("open")) closeSideDrawer();
-    else openSideDrawer();
+  document.addEventListener("click", (e) => {
+    if (!wrap.contains(e.target)) closeKebabMenu();
   });
 
-  overlay.addEventListener("click", closeSideDrawer);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeKebabMenu();
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -611,7 +740,7 @@ function getCurrentScheduleRow() {
 function renderSchedule() {
   const clockIdx = getCurrentScheduleRow();
   const schedule = getSchedule();
-  const tbody = document.getElementById("schedule-body");
+  const tbody = target("schedule-body");
   tbody.innerHTML = schedule
     .map((row, i) => {
       const cls =
@@ -621,7 +750,7 @@ function renderSchedule() {
             ? "completed-row"
             : "";
       const editBtn = isAdmin()
-        ? `<button class="edit-btn" onclick="openEditor(${row.id})">✏️</button>`
+        ? `<button type="button" class="edit-btn" data-action="edit-row" data-row-id="${row.id}">✏️</button>`
         : "";
       return `<tr class="${cls}">
       <td class="time-cell">${row.planned}</td>
@@ -649,23 +778,30 @@ function renderSchedule() {
     const pct = Math.min(100, (elapsed2 / raceMs2) * 100);
     const circumference = 2 * Math.PI * 35;
     const offset = circumference * (1 - pct / 100);
-    const ring = document.getElementById("ring-time");
+    const ring = target("ring-time-progress");
     if (ring) {
       ring.style.strokeDashoffset = offset;
     }
-    document.getElementById("ring-pct-val").textContent = Math.round(pct) + "%";
-    document.getElementById("rm-time").textContent = Math.round(pct) + "%";
+    target("ring-pct").textContent = Math.round(pct) + "%";
+    target("ring-meta-time").textContent = Math.round(pct) + "%";
     const lapsDone2 = lapLog.filter((l) => l.breakEnd).length;
-    document.getElementById("rm-laps").textContent = lapsDone2 + " / " + state.settings.targetLaps;
-    document.getElementById("rm-km").textContent =
+    target("ring-meta-laps").textContent = lapsDone2 + " / " + state.settings.targetLaps;
+    target("ring-meta-km").textContent =
       (lapsDone2 * (state.settings.lapDist || 8)).toFixed(1) + ' ק"מ';
+  } else if (!state.raceStarted) {
+    const ring = target("ring-time-progress");
+    if (ring) ring.style.strokeDashoffset = String(2 * Math.PI * 35);
+    target("ring-pct").textContent = "0%";
+    target("ring-meta-time").textContent = "0%";
+    target("ring-meta-laps").textContent = `0 / ${state.settings.targetLaps}`;
+    target("ring-meta-km").textContent = '0 ק"מ';
   }
 
   renderProgressBars(now2);
 }
 
 function renderLapLog() {
-  const container = document.getElementById("lap-log-rows");
+  const container = target("lap-log-container");
   const lapLog = getLapLog();
 
   if (lapLog.length === 0) {
@@ -726,7 +862,7 @@ function renderLapLog() {
 // LIVE VIEW
 // ══════════════════════════════════════════════════════
 function renderLive() {
-  const tl = document.getElementById("live-timeline");
+  const tl = target("live-timeline");
   if (!state.raceStarted) {
     tl.innerHTML =
       '<div style="color:var(--muted);font-size:.8rem;padding:10px">ממתין לתחילת המרוץ...</div>';
@@ -764,17 +900,19 @@ function renderLive() {
 // GEAR
 // ══════════════════════════════════════════════════════
 function renderGear() {
-  document.getElementById("gear-grid").innerHTML = GEAR_DATA.map((item) => {
+  target("gear-grid").innerHTML = GEAR_DATA.map((item) => {
     const chk = !!state.gearChecked[item.id];
-    return `<div class="gear-item ${chk ? "checked" : ""} ${item.mandatory ? "mandatory" : "optional"}" onclick="${isAdmin() ? `toggleGear(${item.id})` : ""}">
+    const toggleAttr = isAdmin() ? `data-action="toggle-gear" data-gear-id="${item.id}"` : "";
+    return `<div class="gear-item ${chk ? "checked" : ""} ${item.mandatory ? "mandatory" : "optional"}" ${toggleAttr}>
       <div class="gear-check">${chk ? "✓" : ""}</div>
       <div><div class="category-badge">${item.cat}</div><div class="gear-name">${item.name}</div>${item.desc ? `<div class="gear-desc">${item.desc}</div>` : ""}</div>
     </div>`;
   }).join("");
 
-  document.getElementById("logistics-grid").innerHTML = LOGISTICS_DATA.map((item, i) => {
+  target("logistics-grid").innerHTML = LOGISTICS_DATA.map((item, i) => {
     const chk = !!state.logisticsChecked[i];
-    return `<div class="gear-item ${chk ? "checked" : ""} ${item.mandatory ? "mandatory" : "optional"}" onclick="${isAdmin() ? `toggleLogistics(${i})` : ""}">
+    const toggleAttr = isAdmin() ? `data-action="toggle-logistics" data-logistics-index="${i}"` : "";
+    return `<div class="gear-item ${chk ? "checked" : ""} ${item.mandatory ? "mandatory" : "optional"}" ${toggleAttr}>
       <div class="gear-check">${chk ? "✓" : ""}</div>
       <div><div class="gear-name">${item.name}</div>${item.desc ? `<div class="gear-desc">${item.desc}</div>` : ""}</div>
     </div>`;
@@ -799,21 +937,22 @@ function openEditor(id) {
   const row = getSchedule().find((r) => r.id === id);
   if (!row) return;
   state.editingId = id;
-  document.getElementById("edit-time").value = row.planned;
-  document.getElementById("edit-actual").value = row.actualTime || "";
-  document.getElementById("edit-food").value = row.food || "";
-  document.getElementById("edit-drink").value = row.drink || "";
-  document.getElementById("edit-supps").value = row.supps || "";
-  document.getElementById("edit-gear").value = row.gear || "";
-  document.getElementById("edit-clothing").value = row.clothing || "";
-  document.getElementById("edit-notes").value = row.notes || "";
-  document.getElementById("editor-panel").classList.add("open");
-  document.getElementById("editor-panel").scrollIntoView({ behavior: "smooth" });
+  target("edit-planned-time").value = row.planned;
+  target("edit-actual-time").value = row.actualTime || "";
+  target("edit-food").value = row.food || "";
+  target("edit-drink").value = row.drink || "";
+  target("edit-supps").value = row.supps || "";
+  target("edit-gear-field").value = row.gear || "";
+  target("edit-clothing").value = row.clothing || "";
+  target("edit-notes").value = row.notes || "";
+  const panel = target("editor-panel");
+  panel.classList.add("open");
+  panel.scrollIntoView({ behavior: "smooth" });
 }
 
 function closeEditor() {
   state.editingId = null;
-  document.getElementById("editor-panel").classList.remove("open");
+  target("editor-panel").classList.remove("open");
 }
 
 function saveEdit() {
@@ -821,14 +960,14 @@ function saveEdit() {
   const editingId = state.editingId;
   if (!editingId) return;
   store.saveEdit(editingId, {
-    planned: document.getElementById("edit-time").value,
-    actualTime: document.getElementById("edit-actual").value,
-    food: document.getElementById("edit-food").value,
-    drink: document.getElementById("edit-drink").value,
-    supps: document.getElementById("edit-supps").value,
-    gear: document.getElementById("edit-gear").value,
-    clothing: document.getElementById("edit-clothing").value,
-    notes: document.getElementById("edit-notes").value,
+    planned: target("edit-planned-time").value,
+    actualTime: target("edit-actual-time").value,
+    food: target("edit-food").value,
+    drink: target("edit-drink").value,
+    supps: target("edit-supps").value,
+    gear: target("edit-gear-field").value,
+    clothing: target("edit-clothing").value,
+    notes: target("edit-notes").value,
   });
   closeEditor();
 }
@@ -838,18 +977,18 @@ function saveEdit() {
 // ══════════════════════════════════════════════════════
 function saveSettings() {
   if (!isAdmin()) return;
-  const newPin = document.getElementById("setting-pin").value;
+  const newPin = target("setting-admin-pin").value;
   if (newPin && newPin.length === 4 && /^\d{4}$/.test(newPin)) {
     setAdminPin(newPin);
     state.settings.adminPin = newPin;
   }
   store.saveSettings({
-    targetLaps: parseInt(document.getElementById("setting-laps").value) || 10,
-    lapDist: parseFloat(document.getElementById("setting-dist").value) || 8,
-    lapPaceMin: parseInt(document.getElementById("setting-pace").value) || 144,
-    targetLap: parseInt(document.getElementById("setting-target-lap").value) || 143,
-    targetPit: parseInt(document.getElementById("setting-target-pit").value) || 5,
-    durationHours: parseInt(document.getElementById("setting-duration").value) || 25,
+    targetLaps: parseInt(target("setting-target-laps").value) || 10,
+    lapDist: parseFloat(target("setting-lap-dist").value) || 8,
+    lapPaceMin: parseInt(target("setting-lap-pace").value) || 144,
+    targetLap: parseInt(target("setting-target-lap").value) || 143,
+    targetPit: parseInt(target("setting-target-pit").value) || 5,
+    durationHours: parseInt(target("setting-duration").value) || 25,
   });
   alert("✅ הגדרות נשמרו!");
 }
@@ -884,7 +1023,7 @@ function renderAll() {
 }
 
 function updateFinishRaceButton() {
-  const btn = document.getElementById("btn-finish-race");
+  const btn = action("finish-race");
   if (!btn) return;
   if (state.raceFinished) {
     btn.textContent = "🏆 מרוץ הסתיים";
@@ -892,7 +1031,14 @@ function updateFinishRaceButton() {
     btn.style.color = "#15803d";
     btn.style.borderColor = "#86efac";
     btn.disabled = true;
+    return;
   }
+
+  btn.textContent = "🏁 סיום מרוץ";
+  btn.style.background = "#f1f5f9";
+  btn.style.color = "#64748b";
+  btn.style.borderColor = "#e2e8f0";
+  btn.disabled = false;
 }
 
 // ══════════════════════════════════════════════════════
@@ -904,12 +1050,12 @@ function finishRaceClick() {
   if (!isAdmin()) return;
   finishBuffer = "";
   updateFinishDots();
-  document.getElementById("finish-error").textContent = "";
-  document.getElementById("finish-modal").style.display = "flex";
+  target("finish-error").textContent = "";
+  target("finish-modal").style.display = "flex";
 }
 
 function closeFinishModal() {
-  document.getElementById("finish-modal").style.display = "none";
+  target("finish-modal").style.display = "none";
 }
 
 function finishKey(k) {
@@ -930,7 +1076,9 @@ function finishDel() {
 
 function updateFinishDots() {
   for (let i = 0; i < 4; i++) {
-    document.getElementById("fd" + i).classList.toggle("filled", i < finishBuffer.length);
+    document
+      .querySelector(`[data-target="finish-dot"][data-index="${i}"]`)
+      ?.classList.toggle("filled", i < finishBuffer.length);
   }
 }
 
@@ -943,10 +1091,10 @@ function finishSubmit() {
     pendingFinishSummary = true;
     store.finishRace();
   } else {
-    document.getElementById("finish-error").textContent = "❌ קוד שגוי";
+    target("finish-error").textContent = "❌ קוד שגוי";
     finishBuffer = "";
     updateFinishDots();
-    setTimeout(() => (document.getElementById("finish-error").textContent = ""), 1500);
+    setTimeout(() => (target("finish-error").textContent = ""), 1500);
   }
 }
 
@@ -977,13 +1125,13 @@ function updateStateAndRender(remote) {
   state.mode = clientFields.mode;
   state.editingId = clientFields.editingId;
 
-  document.getElementById("setting-laps").value = state.settings.targetLaps;
-  document.getElementById("setting-dist").value = state.settings.lapDist || 8;
-  document.getElementById("setting-pace").value = state.settings.lapPaceMin;
-  document.getElementById("setting-target-lap").value =
+  target("setting-target-laps").value = state.settings.targetLaps;
+  target("setting-lap-dist").value = state.settings.lapDist || 8;
+  target("setting-lap-pace").value = state.settings.lapPaceMin;
+  target("setting-target-lap").value =
     state.settings.targetLap ?? state.settings.lapPaceMin ?? 143;
-  document.getElementById("setting-target-pit").value = state.settings.targetPit ?? 5;
-  document.getElementById("setting-duration").value = state.settings.durationHours;
+  target("setting-target-pit").value = state.settings.targetPit ?? 5;
+  target("setting-duration").value = state.settings.durationHours;
 
   renderAll();
 
@@ -993,17 +1141,107 @@ function updateStateAndRender(remote) {
   }
 }
 
+function initActionDelegation() {
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-action]");
+    if (!el) return;
+
+    switch (el.dataset.action) {
+      case "pin-key":
+        pinKey(el.dataset.pinValue);
+        break;
+      case "pin-delete":
+        pinDel();
+        break;
+      case "enter-viewer":
+        enterAsViewer();
+        break;
+      case "toggle-kebab":
+        e.stopPropagation();
+        if (target("kebab-dropdown")?.classList.contains("open")) closeKebabMenu();
+        else openKebabMenu();
+        break;
+      case "open-settings":
+        setMode("settings");
+        break;
+      case "logout":
+        logout();
+        break;
+      case "go-home":
+        setMode("manager");
+        closeKebabMenu();
+        break;
+      case "toggle-theme":
+        toggleDarkMode();
+        break;
+      case "start-lap":
+        btnStartClick();
+        break;
+      case "finish-lap":
+        btnFinishClick();
+        break;
+      case "finish-race":
+        finishRaceClick();
+        break;
+      case "reset-race":
+        resetRace();
+        break;
+      case "switch-tab":
+        switchTab(el.dataset.tab);
+        break;
+      case "close-editor":
+        closeEditor();
+        break;
+      case "save-edit":
+        saveEdit();
+        break;
+      case "save-settings":
+        saveSettings();
+        break;
+      case "export-data":
+        exportData();
+        break;
+      case "clear-data":
+        clearData();
+        break;
+      case "finish-key":
+        finishKey(el.dataset.finishValue);
+        break;
+      case "finish-delete":
+        finishDel();
+        break;
+      case "close-finish-modal":
+        closeFinishModal();
+        break;
+      case "edit-row":
+        openEditor(Number(el.dataset.rowId));
+        break;
+      case "toggle-gear":
+        toggleGear(Number(el.dataset.gearId));
+        break;
+      case "toggle-logistics":
+        toggleLogistics(Number(el.dataset.logisticsIndex));
+        break;
+      default:
+        break;
+    }
+  });
+}
+
 function initApp() {
   applyRoleUI();
   initDarkMode();
-  initSideDrawer();
+  initActionDelegation();
+  initKebabMenu();
   updateConnectionStatus();
+  setManagerTab("dashboard");
 
   window.addEventListener("online", updateConnectionStatus);
   window.addEventListener("offline", updateConnectionStatus);
 
   if (isAdmin()) {
-    document.getElementById("pin-overlay").classList.add("hidden");
+    target("login-screen").classList.add("hidden");
+    target("main-app")?.classList.remove("hidden");
   }
 }
 
@@ -1012,7 +1250,10 @@ function exposeUiGlobals() {
   window.pinDel = pinDel;
   window.enterAsViewer = enterAsViewer;
   window.lockApp = lockApp;
+  window.logout = logout;
   window.setMode = setMode;
+  window.switchTab = switchTab;
+  window.setManagerTab = setManagerTab;
   window.btnStartClick = btnStartClick;
   window.btnFinishClick = btnFinishClick;
   window.resetRace = resetRace;

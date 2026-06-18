@@ -38,7 +38,9 @@
 
   /* PIN OVERLAY */
   #pin-overlay{position:fixed;inset:0;background:rgba(30,45,72,0.92);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
-  #pin-overlay.hidden{display:none;}
+  #pin-overlay.hidden,
+  [data-target="login-screen"].hidden{display:none;}
+  [data-target="main-app"].hidden{display:none !important;}
   .pin-box{background:#ffffff;border:2px solid var(--rust);border-radius:16px;padding:32px 28px;text-align:center;max-width:320px;width:90%;}
   .pin-title{font-size:1.3rem;font-weight:800;color:var(--text);margin-bottom:6px;font-family:'Inter',sans-serif;}
   .pin-sub{font-size:0.78rem;color:#374151;margin-bottom:20px;line-height:1.5;}
@@ -299,146 +301,145 @@
 </head>
 <body>
 
-<!-- PIN OVERLAY -->
-<div id="pin-overlay">
+<!-- PIN / LOGIN SCREEN -->
+<div id="pin-overlay" data-target="login-screen">
   <div class="pin-box">
     <div class="pin-title">🔐 WTM 2026</div>
     <div class="pin-sub">הכנס קוד מנהל לעריכה<br>או המשך כצופה בלבד</div>
     <div class="pin-dots" id="pin-dots">
-      <div class="pin-dot" id="d0"></div>
-      <div class="pin-dot" id="d1"></div>
-      <div class="pin-dot" id="d2"></div>
-      <div class="pin-dot" id="d3"></div>
+      <div class="pin-dot" id="d0" data-target="pin-dot" data-index="0"></div>
+      <div class="pin-dot" id="d1" data-target="pin-dot" data-index="1"></div>
+      <div class="pin-dot" id="d2" data-target="pin-dot" data-index="2"></div>
+      <div class="pin-dot" id="d3" data-target="pin-dot" data-index="3"></div>
     </div>
     <div class="pin-keypad">
-      <button class="pin-key" onclick="pinKey('1')">1</button>
-      <button class="pin-key" onclick="pinKey('2')">2</button>
-      <button class="pin-key" onclick="pinKey('3')">3</button>
-      <button class="pin-key" onclick="pinKey('4')">4</button>
-      <button class="pin-key" onclick="pinKey('5')">5</button>
-      <button class="pin-key" onclick="pinKey('6')">6</button>
-      <button class="pin-key" onclick="pinKey('7')">7</button>
-      <button class="pin-key" onclick="pinKey('8')">8</button>
-      <button class="pin-key" onclick="pinKey('9')">9</button>
-      <button class="pin-key del" onclick="pinDel()">⌫</button>
-      <button class="pin-key" onclick="pinKey('0')">0</button>
-      <button class="pin-key" onclick="pinKey('✓')" style="color:var(--lime)">✓</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="1">1</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="2">2</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="3">3</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="4">4</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="5">5</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="6">6</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="7">7</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="8">8</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="9">9</button>
+      <button type="button" class="pin-key del" data-action="pin-delete">⌫</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="0">0</button>
+      <button type="button" class="pin-key" data-action="pin-key" data-pin-value="✓" style="color:var(--lime)">✓</button>
     </div>
-    <div class="pin-error" id="pin-error"></div>
-    <div class="pin-viewer-btn" onclick="enterAsViewer()">כניסה כצופה בלבד →</div>
+    <div class="pin-error" id="pin-error" data-target="pin-error"></div>
+    <button type="button" class="pin-viewer-btn" data-action="enter-viewer" style="background:none;border:none;font:inherit;">כניסה כצופה בלבד →</button>
   </div>
 </div>
+
+<div data-target="main-app">
 
 <!-- HEADER -->
 <header id="app-header">
   <div class="header-left">
-    <button type="button" id="menu-toggle" class="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="side-drawer">☰</button>
+    <div class="kebab-menu-wrap" data-target="kebab-menu">
+      <button type="button" id="kebab-toggle" class="kebab-btn" data-action="toggle-kebab" aria-label="Open menu" aria-expanded="false" aria-controls="kebab-dropdown">⋮</button>
+      <div id="kebab-dropdown" class="kebab-dropdown" data-target="kebab-dropdown" aria-hidden="true">
+        <button type="button" class="kebab-item settings-admin-only" data-action="open-settings">⚙️ הגדרות</button>
+        <button type="button" class="kebab-item" data-action="toggle-theme">🌓 תצוגה בהירה/כהה</button>
+        <button type="button" class="kebab-item" data-action="logout">התנתק</button>
+      </div>
+    </div>
   </div>
   <div class="header-center">
-    <img src="/logo192T.png" alt="MudLog" class="header-logo">
+    <img src="/logo192T.png" alt="MudLog" class="header-logo" data-action="go-home">
     <div class="header-sub" id="header-sub" dir="ltr">World's Toughest Mudder - June 27-28</div>
   </div>
   <div class="header-right">
-    <div id="connection-status">🟢 Online</div>
+    <div id="connection-status" data-target="connection-status">🟢 Online</div>
   </div>
 </header>
-
-<!-- SIDE DRAWER -->
-<div id="drawer-overlay" class="drawer-overlay" aria-hidden="true"></div>
-<aside id="side-drawer" class="side-drawer" aria-hidden="true">
-  <div class="header-actions">
-    <div class="lock-badge viewer" id="lock-badge" onclick="lockApp()">🔒 צופה</div>
-    <div id="mode-tabs">
-      <button class="mode-btn active" onclick="setMode('manager')">📋 מנהל</button>
-      <button class="mode-btn" onclick="setMode('live')">Live Update</button>
-      <button class="mode-btn" onclick="setMode('gear')">🎒 ציוד</button>
-      <button class="mode-btn" onclick="setMode('settings')">⚙️</button>
-    </div>
-  </div>
-  <div class="drawer-branding">
-    <img src="/israel_flag.png" alt="Israel" class="drawer-brand-logo">
-    <img src="/logowtm.png" alt="WTM" class="drawer-brand-logo">
-  </div>
-</aside>
 
 <!-- RACE CLOCK -->
 <div id="race-clock-bar">
   <div class="clock-item">
     <div class="clock-label">שעה עכשיו</div>
-    <div class="clock-value" id="clock-now">--:--:--</div>
+    <div class="clock-value" id="clock-now" data-target="live-timer">--:--:--</div>
   </div>
   <div class="clock-item">
     <div class="clock-label">משך סיבוב נוכחי</div>
-    <div class="clock-value live pulsing" id="clock-lap-dur">--:--</div>
+    <div class="clock-value live pulsing" id="clock-lap-dur" data-target="lap-duration">--:--</div>
   </div>
   <div class="clock-item">
     <div class="clock-label">זמן הפסקה</div>
-    <div class="clock-value purple" id="clock-break">--:--</div>
+    <div class="clock-value purple" id="clock-break" data-target="break-clock">--:--</div>
   </div>
   <div class="clock-item">
     <div class="clock-label">חזרה צפויה</div>
-    <div class="clock-value ice" id="clock-return">--:--</div>
+    <div class="clock-value ice" id="clock-return" data-target="expected-return">--:--</div>
   </div>
 </div>
 
 <!-- ACTION AREA -->
-<div id="action-area">
-  <button class="action-btn" id="btn-start" onclick="btnStartClick()">התחל סיבוב 1</button>
-  <button class="action-btn" id="btn-finish" onclick="btnFinishClick()" disabled>הפסקה</button>
-  <div class="break-timer" id="break-display" style="display:none"><span style="font-family:'Inter',sans-serif;font-weight:600;">⏸ הפסקה:&nbsp;</span><span id="break-clock" style="font-family:'Fira Code',monospace;">0:00</span></div>
-  <div style="flex:1"></div>
-  <button class="action-btn" id="btn-finish-race" onclick="finishRaceClick()" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-size:.8rem;padding:8px 14px;">🏁 סיום מרוץ</button>
-  <button class="action-btn" id="btn-reset" onclick="resetRace()">↺ איפוס</button>
+<div id="action-area" class="action-bar" data-target="action-bar">
+  <button type="button" class="action-btn btn-primary" id="btn-start" data-action="start-lap">התחל סיבוב 1</button>
+  <button type="button" class="action-btn btn-primary" id="btn-finish" data-action="finish-lap" disabled>הפסקה</button>
+  <div class="break-timer is-collapsed" id="break-display" data-target="break-timer-display"><span style="font-family:'Inter',sans-serif;font-weight:600;">⏸ הפסקה:&nbsp;</span><span id="break-clock" data-target="break-timer-value" style="font-family:'Fira Code',monospace;">0:00</span></div>
+  <button type="button" class="action-btn" id="btn-finish-race" data-action="finish-race" style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:8px;font-size:.8rem;padding:8px 14px;">🏁 סיום מרוץ</button>
+  <button type="button" class="action-btn" id="btn-reset" data-action="reset-race">↺ איפוס</button>
 </div>
 
-<!-- PROGRESS -->
-<div id="progress-section">
-  <div class="progress-row">
-    <div class="progress-label">זמן תחרות</div>
-    <div class="progress-bar-bg"><div class="progress-segments" id="time-progress"></div></div>
-    <div class="progress-pct" id="time-pct">0%</div>
-  </div>
-  <div class="progress-row">
-    <div class="progress-label">סיבובים</div>
-    <div class="progress-bar-bg"><div class="progress-segments" id="laps-progress"></div></div>
-    <div class="progress-pct" id="laps-pct">0/10</div>
-  </div>
-  <div id="pace-indicator" class="ontrack"><span>📍</span><span id="pace-text">טרם התחיל</span></div>
-</div>
-
-<!-- PACE STATUS -->
-<div id="pace-status-card" class="neutral">
-  <div class="pace-status-title">סטטוס קצב</div>
-  <div id="pace-status-text" class="pace-status-text">טרם התחיל</div>
-</div>
+<!-- CONTENT TABS -->
+<nav id="content-tab-bar" class="content-tab-bar" data-target="content-tab-bar" aria-label="Content sections">
+  <button type="button" class="content-tab active" data-action="switch-tab" data-tab="dashboard">לוח</button>
+  <button type="button" class="content-tab" data-action="switch-tab" data-tab="log">יומן</button>
+  <button type="button" class="content-tab" data-action="switch-tab" data-tab="gear">ציוד</button>
+</nav>
 
 <!-- MAIN -->
 <div id="main-content">
 
   <!-- MANAGER VIEW -->
-  <div id="view-manager" class="view active">
-    <div id="editor-panel" class="editor-panel">
+  <div id="view-manager" class="view active" data-target="main-dashboard" data-view="manager">
+
+    <!-- Dashboard: progress + prep + now card -->
+    <div id="view-dashboard-wrap" data-target="view-dashboard">
+    <div id="manager-panel-dashboard" class="manager-panel" data-target="manager-panel" data-panel="dashboard">
+      <div id="progress-section" data-target="progress-section">
+        <div class="progress-row">
+          <div class="progress-label">זמן תחרות</div>
+          <div class="progress-bar-bg"><div class="progress-segments" id="time-progress" data-target="time-progress-bar"></div></div>
+          <div class="progress-pct" id="time-pct" data-target="time-progress-pct">0%</div>
+        </div>
+        <div class="progress-row">
+          <div class="progress-label">סיבובים</div>
+          <div class="progress-bar-bg"><div class="progress-segments" id="laps-progress" data-target="laps-progress-bar"></div></div>
+          <div class="progress-pct" id="laps-pct" data-target="laps-progress-pct">0/10</div>
+        </div>
+        <div id="pace-indicator" class="ontrack" data-target="pace-indicator"><span>📍</span><span id="pace-text" data-target="pace-indicator-text">טרם התחיל</span></div>
+      </div>
+
+      <div id="pace-status-card" class="status-hero neutral" data-target="pace-status">
+        <div class="pace-status-title">סטטוס קצב</div>
+        <div id="pace-status-text" class="pace-status-text" data-target="pace-status-text">טרם התחיל</div>
+      </div>
+
+      <div id="editor-panel" class="editor-panel" data-target="editor-panel">
       <div class="editor-title">✏️ עריכת שורה</div>
       <div class="form-grid">
-        <div class="form-group"><label>שעה מתוכננת</label><input type="text" id="edit-time" placeholder="12:00"></div>
-        <div class="form-group"><label>שעה בפועל</label><input type="text" id="edit-actual" placeholder="12:15"></div>
-        <div class="form-group"><label>אוכל</label><input type="text" id="edit-food"></div>
-        <div class="form-group"><label>שתייה</label><input type="text" id="edit-drink"></div>
-        <div class="form-group"><label>תוספים</label><input type="text" id="edit-supps"></div>
-        <div class="form-group"><label>ציוד נדרש</label><input type="text" id="edit-gear"></div>
-        <div class="form-group"><label>ביגוד</label><input type="text" id="edit-clothing"></div>
-        <div class="form-group full"><label>הערות מנהל</label><textarea id="edit-notes"></textarea></div>
+        <div class="form-group"><label>שעה מתוכננת</label><input type="text" id="edit-time" data-target="edit-planned-time" placeholder="12:00"></div>
+        <div class="form-group"><label>שעה בפועל</label><input type="text" id="edit-actual" data-target="edit-actual-time" placeholder="12:15"></div>
+        <div class="form-group"><label>אוכל</label><input type="text" id="edit-food" data-target="edit-food"></div>
+        <div class="form-group"><label>שתייה</label><input type="text" id="edit-drink" data-target="edit-drink"></div>
+        <div class="form-group"><label>תוספים</label><input type="text" id="edit-supps" data-target="edit-supps"></div>
+        <div class="form-group"><label>ציוד נדרש</label><input type="text" id="edit-gear" data-target="edit-gear-field"></div>
+        <div class="form-group"><label>ביגוד</label><input type="text" id="edit-clothing" data-target="edit-clothing"></div>
+        <div class="form-group full"><label>הערות מנהל</label><textarea id="edit-notes" data-target="edit-notes"></textarea></div>
       </div>
       <div class="editor-actions">
-        <button class="btn-cancel" onclick="closeEditor()">ביטול</button>
-        <button class="btn-save" onclick="saveEdit()">💾 שמור</button>
+        <button type="button" class="btn-cancel" data-action="close-editor">ביטול</button>
+        <button type="button" class="btn-save" data-action="save-edit">💾 שמור</button>
       </div>
     </div>
 
-    <div id="current-lap-card" class="current-card">
+    <div id="current-lap-card" class="current-card" data-target="current-lap-card">
       <div class="card-header">
         <div class="card-title">עכשיו — מה להכין</div>
-        <div class="lap-badge" id="current-lap-badge">סיבוב —</div>
+        <div class="lap-badge" id="current-lap-badge" data-target="current-lap-badge">סיבוב —</div>
       </div>
 
       <!-- PROGRESS RING ROW -->
@@ -452,11 +453,11 @@
               </linearGradient>
             </defs>
             <circle class="ring-bg" cx="42" cy="42" r="35"/>
-            <circle class="ring-fill time-ring" id="ring-time" cx="42" cy="42" r="35"
+            <circle class="ring-fill time-ring" id="ring-time" data-target="ring-time-progress" cx="42" cy="42" r="35"
               stroke-dasharray="219.9" stroke-dashoffset="219.9"/>
           </svg>
           <div class="ring-label">
-            <div class="ring-pct" id="ring-pct-val">0%</div>
+            <div class="ring-pct" id="ring-pct-val" data-target="ring-pct">0%</div>
             <div class="ring-sub">זמן</div>
           </div>
         </div>
@@ -464,39 +465,44 @@
           <div class="ring-meta-row">
             <div class="ring-dot time"></div>
             <div class="ring-meta-label">זמן תחרות</div>
-            <div class="ring-meta-val" id="rm-time">0%</div>
+            <div class="ring-meta-val" id="rm-time" data-target="ring-meta-time">0%</div>
           </div>
           <div class="ring-meta-row">
             <div class="ring-dot laps"></div>
             <div class="ring-meta-label">סיבובים</div>
-            <div class="ring-meta-val" id="rm-laps">0 / 10</div>
+            <div class="ring-meta-val" id="rm-laps" data-target="ring-meta-laps">0 / 10</div>
           </div>
           <div class="ring-meta-row">
             <div class="ring-dot" style="background:#0284c7"></div>
             <div class="ring-meta-label">ק"מ כולל</div>
-            <div class="ring-meta-val" id="rm-km">0 ק"מ</div>
+            <div class="ring-meta-val" id="rm-km" data-target="ring-meta-km">0 ק"מ</div>
           </div>
         </div>
       </div>
 
       <div class="nutrition-grid">
-        <div class="nut-item"><div class="nut-item-label">🍎 אוכל</div><div class="nut-item-value" id="cur-food">—</div></div>
-        <div class="nut-item drink"><div class="nut-item-label">💧 שתייה</div><div class="nut-item-value" id="cur-drink">—</div></div>
-        <div class="nut-item supplement"><div class="nut-item-label">💊 תוספים</div><div class="nut-item-value" id="cur-supps">—</div></div>
-        <div class="nut-item gear"><div class="nut-item-label">🎒 ציוד/ביגוד</div><div class="nut-item-value" id="cur-gear">—</div></div>
+        <div class="nut-item"><div class="nut-item-label">🍎 אוכל</div><div class="nut-item-value" id="cur-food" data-target="current-food">—</div></div>
+        <div class="nut-item drink"><div class="nut-item-label">💧 שתייה</div><div class="nut-item-value" id="cur-drink" data-target="current-drink">—</div></div>
+        <div class="nut-item supplement"><div class="nut-item-label">💊 תוספים</div><div class="nut-item-value" id="cur-supps" data-target="current-supps">—</div></div>
+        <div class="nut-item gear"><div class="nut-item-label">🎒 ציוד/ביגוד</div><div class="nut-item-value" id="cur-gear" data-target="current-gear">—</div></div>
       </div>
-      <div id="cur-note" class="note-box" style="display:none"></div>
+      <div id="cur-note" class="note-box" data-target="current-note" style="display:none"></div>
 
       <!-- NEXT LAP STRIP -->
-      <div class="next-lap-strip" id="next-lap-strip" style="display:none">
+      <div class="next-lap-strip" id="next-lap-strip" data-target="next-lap-strip" style="display:none">
         <div class="next-lap-icon">⏭</div>
         <div>
-          <div class="next-lap-label">הבא בתור — סיבוב <span id="next-lap-num">—</span></div>
-          <div class="next-lap-content" id="next-lap-content">—</div>
+          <div class="next-lap-label">הבא בתור — סיבוב <span id="next-lap-num" data-target="next-lap-number">—</span></div>
+          <div class="next-lap-content" id="next-lap-content" data-target="next-lap-content">—</div>
         </div>
       </div>
     </div>
+    </div>
+    </div>
 
+    <!-- Log: schedule + lap history -->
+    <div data-target="view-log" class="content-view hidden">
+    <div id="manager-panel-log" class="manager-panel" data-target="manager-panel" data-panel="log">
     <div class="section-title">לוח זמנים מלא</div>
     <div style="overflow-x:auto;">
       <table class="schedule-table" id="schedule-table">
@@ -504,7 +510,7 @@
           <th>שעה</th><th>בפועל</th><th>סיבוב</th><th>אוכל</th>
           <th>שתייה</th><th>תוספים</th><th>ציוד</th><th>ביגוד</th><th>הערות</th><th></th>
         </tr></thead>
-        <tbody id="schedule-body"></tbody>
+        <tbody id="schedule-body" data-target="schedule-body"></tbody>
       </table>
     </div>
     <div class="scroll-hint">← גלול לפרטים נוספים</div>
@@ -514,51 +520,55 @@
       <div class="lap-log-header">
         <span>סיבוב</span><span>יציאה</span><span>חזרה</span><span>משך ריצה</span><span>הפסקה</span>
       </div>
-      <div id="lap-log-rows"><div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div></div>
+      <div id="lap-log-rows" data-target="lap-log-container"><div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div></div>
     </div>
+    </div>
+    </div>
+
+    <!-- Gear: checklist -->
+    <div data-target="view-gear" class="content-view hidden">
+    <div id="manager-panel-gear" class="manager-panel" data-target="manager-panel" data-panel="gear">
+    <div class="section-title">ציוד אישי</div>
+    <div class="gear-grid" id="gear-grid" data-target="gear-grid"></div>
+    <div class="section-title">לוגיסטיקה קבוצתית</div>
+    <div class="gear-grid" id="logistics-grid" data-target="logistics-grid"></div>
+    </div>
+    </div>
+
   </div>
 
   <!-- LIVE VIEW -->
-  <div id="view-live" class="view">
+  <div id="view-live" class="view" data-target="live-view" data-view="live">
     <div class="live-hero">
       <div class="live-hero-name">Live Update</div>
       <div class="live-hero-event">World's Toughest Mudder · Big Bear Lake, CA · 27-28.6.2026</div>
       <div class="live-stats">
-        <div class="live-stat"><div class="live-stat-value" id="live-laps">0</div><div class="live-stat-label">סיבובים</div></div>
-        <div class="live-stat"><div class="live-stat-value" id="live-km">0</div><div class="live-stat-label">ק"מ</div></div>
-        <div class="live-stat"><div class="live-stat-value" id="live-status">🏕️</div><div class="live-stat-label">סטטוס</div></div>
+        <div class="live-stat"><div class="live-stat-value" id="live-laps" data-target="live-laps-count">0</div><div class="live-stat-label">סיבובים</div></div>
+        <div class="live-stat"><div class="live-stat-value" id="live-km" data-target="live-km-total">0</div><div class="live-stat-label">ק"מ</div></div>
+        <div class="live-stat"><div class="live-stat-value" id="live-status" data-target="live-status-icon">🏕️</div><div class="live-stat-label">סטטוס</div></div>
       </div>
     </div>
     <div class="section-title">יומן לייב</div>
-    <div class="live-timeline" id="live-timeline"><div style="color:var(--muted);font-size:.8rem;padding:10px">ממתין לתחילת המרוץ...</div></div>
-  </div>
-
-  <!-- GEAR VIEW -->
-  <div id="view-gear" class="view">
-    <div class="section-title">ציוד אישי</div>
-    <div class="gear-grid" id="gear-grid"></div>
-    <div class="section-title">לוגיסטיקה קבוצתית</div>
-    <div class="gear-grid" id="logistics-grid"></div>
+    <div class="live-timeline" id="live-timeline" data-target="live-timeline"><div style="color:var(--muted);font-size:.8rem;padding:10px">ממתין לתחילת המרוץ...</div></div>
   </div>
 
   <!-- SETTINGS VIEW -->
-  <div id="view-settings" class="view">
+  <div id="view-settings" class="view" data-target="settings-view" data-view="settings">
     <div class="settings-section">
       <div class="settings-title">⚙️ הגדרות מרוץ</div>
       <div class="form-grid">
-        <div class="form-group settings-admin-only"><label>קוד מנהל (4 ספרות)</label><input type="password" id="setting-pin" placeholder="****" maxlength="4"></div>
-        <div class="form-group settings-admin-only"><label>יעד סיבובים</label><input type="number" id="setting-laps" value="10" min="1" max="20"></div>
-        <div class="form-group settings-admin-only"><label>מרחק סיבוב בפועל (ק"מ)</label><input type="number" id="setting-dist" value="8" step="0.1" min="1" max="20"></div>
-        <div class="form-group settings-admin-only"><label>קצב יעד לסיבוב (דק')</label><input type="number" id="setting-pace" value="144"></div>
-        <div class="form-group settings-admin-only"><label>זמן יעד לסיבוב (דק')</label><input type="number" id="setting-target-lap" value="143" min="1" step="1"></div>
-        <div class="form-group settings-admin-only"><label>זמן יעד לתחנה (דק')</label><input type="number" id="setting-target-pit" value="5" min="0" step="1"></div>
-        <div class="form-group settings-admin-only"><label>משך תחרות (שע)</label><input type="number" id="setting-duration" value="25"></div>
+        <div class="form-group settings-admin-only"><label>קוד מנהל (4 ספרות)</label><input type="password" id="setting-pin" data-target="setting-admin-pin" placeholder="****" maxlength="4"></div>
+        <div class="form-group settings-admin-only"><label>יעד סיבובים</label><input type="number" id="setting-laps" data-target="setting-target-laps" value="10" min="1" max="20"></div>
+        <div class="form-group settings-admin-only"><label>מרחק סיבוב בפועל (ק"מ)</label><input type="number" id="setting-dist" data-target="setting-lap-dist" value="8" step="0.1" min="1" max="20"></div>
+        <div class="form-group settings-admin-only"><label>קצב יעד לסיבוב (דק')</label><input type="number" id="setting-pace" data-target="setting-lap-pace" value="144"></div>
+        <div class="form-group settings-admin-only"><label>זמן יעד לסיבוב (דק')</label><input type="number" id="setting-target-lap" data-target="setting-target-lap" value="143" min="1" step="1"></div>
+        <div class="form-group settings-admin-only"><label>זמן יעד לתחנה (דק')</label><input type="number" id="setting-target-pit" data-target="setting-target-pit" value="5" min="0" step="1"></div>
+        <div class="form-group settings-admin-only"><label>משך תחרות (שע)</label><input type="number" id="setting-duration" data-target="setting-duration" value="25"></div>
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-save settings-admin-only" onclick="saveSettings()">💾 שמור</button>
-        <button class="btn-cancel settings-admin-only" onclick="exportData()">📥 ייצא JSON</button>
-        <button class="btn-cancel settings-admin-only" onclick="clearData()" style="border-color:var(--danger);color:var(--danger)">🗑️ מחק הכל</button>
-        <button class="btn-cancel" id="dark-mode-btn" onclick="toggleDarkMode()">🌙 מצב כהה</button>
+        <button type="button" class="btn-save settings-admin-only" data-action="save-settings">💾 שמור</button>
+        <button type="button" class="btn-cancel settings-admin-only" data-action="export-data">📥 ייצא JSON</button>
+        <button type="button" class="btn-cancel settings-admin-only" data-action="clear-data" style="border-color:var(--danger);color:var(--danger)">🗑️ מחק הכל</button>
       </div>
     </div>
     <div class="settings-section">
@@ -574,35 +584,37 @@
   </div>
 </div>
 
-<script type="module" src="/src/main.js"></script>
-
 <!-- FINISH RACE MODAL -->
-<div id="finish-modal" style="display:none;position:fixed;inset:0;background:rgba(30,45,72,.88);backdrop-filter:blur(6px);z-index:9998;align-items:center;justify-content:center;">
+<div id="finish-modal" data-target="finish-modal" style="display:none;position:fixed;inset:0;background:rgba(30,45,72,.88);backdrop-filter:blur(6px);z-index:9998;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:32px 28px;max-width:340px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2);">
     <div style="font-size:2rem;margin-bottom:10px;">🏁</div>
     <div style="font-family:'Inter',sans-serif;font-size:1.2rem;font-weight:800;color:#1e2433;margin-bottom:6px;">סיום מרוץ</div>
     <div style="font-size:.8rem;color:#6b7280;margin-bottom:20px;line-height:1.5;">הכנס את קוד המנהל כדי לאשר סיום מרוץ.<br>פעולה זו תנעל את כל הנתונים.</div>
     <div style="display:flex;justify-content:center;gap:10px;margin-bottom:16px;" id="finish-dots">
-      <div id="fd0" class="pin-dot"></div><div id="fd1" class="pin-dot"></div>
-      <div id="fd2" class="pin-dot"></div><div id="fd3" class="pin-dot"></div>
+      <div id="fd0" class="pin-dot" data-target="finish-dot" data-index="0"></div><div id="fd1" class="pin-dot" data-target="finish-dot" data-index="1"></div>
+      <div id="fd2" class="pin-dot" data-target="finish-dot" data-index="2"></div><div id="fd3" class="pin-dot" data-target="finish-dot" data-index="3"></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;" id="finish-keypad">
-      <button class="pin-key" onclick="finishKey('1')">1</button>
-      <button class="pin-key" onclick="finishKey('2')">2</button>
-      <button class="pin-key" onclick="finishKey('3')">3</button>
-      <button class="pin-key" onclick="finishKey('4')">4</button>
-      <button class="pin-key" onclick="finishKey('5')">5</button>
-      <button class="pin-key" onclick="finishKey('6')">6</button>
-      <button class="pin-key" onclick="finishKey('7')">7</button>
-      <button class="pin-key" onclick="finishKey('8')">8</button>
-      <button class="pin-key" onclick="finishKey('9')">9</button>
-      <button class="pin-key del" onclick="finishDel()">⌫</button>
-      <button class="pin-key" onclick="finishKey('0')">0</button>
-      <button class="pin-key" onclick="finishKey('✓')" style="color:var(--lime)">✓</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="1">1</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="2">2</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="3">3</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="4">4</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="5">5</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="6">6</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="7">7</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="8">8</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="9">9</button>
+      <button type="button" class="pin-key del" data-action="finish-delete">⌫</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="0">0</button>
+      <button type="button" class="pin-key" data-action="finish-key" data-finish-value="✓" style="color:var(--lime)">✓</button>
     </div>
-    <div style="color:var(--danger);font-size:.8rem;min-height:18px;" id="finish-error"></div>
-    <button onclick="closeFinishModal()" style="margin-top:10px;background:none;border:none;color:#9ca3af;font-size:.8rem;cursor:pointer;font-family:'Inter',sans-serif;">ביטול</button>
+    <div style="color:var(--danger);font-size:.8rem;min-height:18px;" id="finish-error" data-target="finish-error"></div>
+    <button type="button" data-action="close-finish-modal" style="margin-top:10px;background:none;border:none;color:#9ca3af;font-size:.8rem;cursor:pointer;font-family:'Inter',sans-serif;">ביטול</button>
   </div>
 </div>
+
+</div><!-- /main-app -->
+
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

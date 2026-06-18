@@ -174,8 +174,21 @@ async function btnFinishClick() {
 }
 
 async function resetRace() {
-  const defaults = createDefaultState();
-  await set(raceRef, defaults);
+  if (!remoteState) return;
+
+  await update(raceRef, {
+    lapLog: [],
+    currentLapNum: 0,
+    currentLapStart: null,
+    currentLapEnd: null,
+    breakStart: null,
+    raceStarted: false,
+    raceFinished: false,
+    raceFinishedAt: null,
+    gearChecked: {},
+    logisticsChecked: {},
+    updatedAt: Date.now(),
+  });
 }
 
 async function toggleGear(id) {
