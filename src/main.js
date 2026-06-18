@@ -22,6 +22,8 @@ function viewEl(mode) {
 const ADMIN_PIN_KEY = "wtm_admin_pin";
 const DARK_MODE_KEY = "wtm_dark_mode";
 const EDITOR_SESSION_KEY = "wtm_editor";
+const HEADER_LOGO_LIGHT = "/logo192D.png";
+const HEADER_LOGO_DARK = "/logo192T.png";
 
 function isAdmin() {
   return sessionStorage.getItem(EDITOR_SESSION_KEY) === "1";
@@ -65,9 +67,17 @@ function updateConnectionStatus() {
   el.classList.toggle("offline", !online);
 }
 
+function updateHeaderLogo() {
+  const logo = target("header-logo");
+  if (!logo) return;
+  const dark = document.body.classList.contains("dark-mode");
+  logo.src = dark ? HEADER_LOGO_DARK : HEADER_LOGO_LIGHT;
+}
+
 function syncThemeAttribute() {
   const dark = document.body.classList.contains("dark-mode");
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  updateHeaderLogo();
 }
 
 function initDarkMode() {
@@ -665,6 +675,24 @@ function setManagerTab(panel) {
   switchTab(panel);
 }
 
+function updateSettingsNavButton() {
+  const btn = action("open-settings");
+  if (!btn) return;
+  if (state.mode === "settings") {
+    btn.innerHTML = '<span class="icon">🏠</span> מסך ראשי';
+  } else {
+    btn.innerHTML = '<span class="icon">⚙️</span> הגדרות';
+  }
+}
+
+function toggleSettingsView() {
+  if (state.mode === "settings") {
+    setMode("manager");
+  } else {
+    setMode("settings");
+  }
+}
+
 function setMode(m) {
   state.mode = m;
   document.querySelectorAll("[data-view]").forEach((v) => v.classList.remove("active"));
@@ -676,6 +704,7 @@ function setMode(m) {
     viewEl("manager").classList.add("active");
     switchTab("gear");
     closeKebabMenu();
+    updateSettingsNavButton();
     return;
   }
 
@@ -684,6 +713,7 @@ function setMode(m) {
     switchTab(state.managerTab || "dashboard");
   }
   closeKebabMenu();
+  updateSettingsNavButton();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1162,7 +1192,7 @@ function initActionDelegation() {
         else openKebabMenu();
         break;
       case "open-settings":
-        setMode("settings");
+        toggleSettingsView();
         break;
       case "logout":
         logout();
@@ -1235,6 +1265,7 @@ function initApp() {
   initKebabMenu();
   updateConnectionStatus();
   setManagerTab("dashboard");
+  updateSettingsNavButton();
 
   window.addEventListener("online", updateConnectionStatus);
   window.addEventListener("offline", updateConnectionStatus);
