@@ -51,7 +51,7 @@ function createDefaultState() {
 
 let remoteState = null;
 const listeners = new Set();
-let initialized = false;
+let unsubscribeDb = null;
 
 function normalizeState(raw) {
   const defaults = createDefaultState();
@@ -82,24 +82,36 @@ function notify() {
   listeners.forEach((listener) => listener(remoteState));
 }
 
-function ensureInitialized() {
-  if (initialized) return;
+function startListening() {
+  if (unsubscribeDb) return;
 
-  onValue(raceRef, (snapshot) => {
-    if (snapshot.exists()) {
-      remoteState = normalizeState(snapshot.val());
-    } else {
-      remoteState = createDefaultState();
-      set(raceRef, remoteState);
+  unsubscribeDb = onValue(
+    raceRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        remoteState = normalizeState(snapshot.val());
+      } else {
+        remoteState = createDefaultState();
+        set(raceRef, remoteState);
+      }
+      notify();
+    },
+    (error) => {
+      console.error("race listener error:", error);
     }
-    notify();
-  });
+  );
+}
 
-  initialized = true;
+function stopListening() {
+  if (unsubscribeDb) {
+    unsubscribeDb();
+    unsubscribeDb = null;
+  }
+  remoteState = null;
+  notify();
 }
 
 function subscribe(listener) {
-  ensureInitialized();
   listeners.add(listener);
   if (remoteState) listener(remoteState);
   return () => listeners.delete(listener);
@@ -255,6 +267,8 @@ async function clearData() {
 export const store = {
   RACE_PATH,
   subscribe,
+  startListening,
+  stopListening,
   saveState,
   btnStartClick,
   btnFinishClick,

@@ -264,7 +264,7 @@ function handleGallerySnapshot(snapshot) {
   }
 }
 
-function startGalleryListener() {
+export function startLiveUpdatesListener() {
   if (unsubscribe) return;
 
   unsubscribe = onValue(ref(db, LIVE_UPDATES_PATH), handleGallerySnapshot, (err) => {
@@ -272,11 +272,24 @@ function startGalleryListener() {
   });
 }
 
+export function stopLiveUpdatesListener() {
+  if (unsubscribe) {
+    unsubscribe();
+    unsubscribe = null;
+  }
+  renderedKeys.clear();
+
+  const grid = queryTarget("gallery-grid");
+  if (grid) {
+    grid.innerHTML =
+      '<p data-target="gallery-empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px;font-size:.85rem">אין עדכונים עדיין</p>';
+  }
+}
+
 /**
- * Initialize Live Update Gallery infrastructure.
+ * Wire admin gate for uploads (listener starts after auth).
  * @param {{ isAdmin: () => boolean }} options
  */
 export function initLiveUpdates({ isAdmin }) {
   isAdminFn = isAdmin;
-  startGalleryListener();
 }
