@@ -96,7 +96,14 @@ function isAdmin() {
 }
 
 function isSuperAdminUid() {
-  return authUser?.uid === SUPER_ADMIN_UID;
+  const uid = auth.currentUser?.uid ?? authUser?.uid;
+  return uid === SUPER_ADMIN_UID;
+}
+
+function logSuperAdminAuthCheck() {
+  const uid = auth.currentUser?.uid ?? authUser?.uid ?? null;
+  const authorized = uid === SUPER_ADMIN_UID;
+  console.log(`Admin Check - Auth UID: ${uid ?? "null"}, Authorized: ${authorized}`);
 }
 
 function evaluateAuthRole() {
@@ -241,6 +248,8 @@ function initAuth() {
     if (user) {
       void logAccessIfNeeded(user);
       evaluateAuthRole();
+      logSuperAdminAuthCheck();
+      renderMenu();
 
       target("login-screen")?.classList.add("hidden");
       target("main-app")?.classList.remove("hidden");
@@ -252,6 +261,8 @@ function initAuth() {
     authRole = "viewer";
     state = resetClientRaceState();
     clearAccessLogSession(previousUid);
+    logSuperAdminAuthCheck();
+    renderMenu();
 
     target("main-app")?.classList.add("hidden");
     target("login-screen")?.classList.remove("hidden");
@@ -1143,6 +1154,8 @@ function getThemeMenuLabel() {
 function renderMenu(viewType = null) {
   const adminItems = target("admin-kebab-items");
   const viewerItems = target("viewer-kebab-items");
+
+  logSuperAdminAuthCheck();
 
   if (!isAdmin()) {
     adminItems?.classList.add("hidden");
