@@ -1,6 +1,19 @@
 import "./style.css";
 import { store } from "./store.js";
+import { initLiveUpdates, handleUploadLiveImage } from "./liveUpdates.js";
 import { GEAR_DATA, LOGISTICS_DATA, ADMIN_PIN } from "./data.js";
+import {
+  auth,
+  db,
+  googleProvider,
+  ref,
+  set,
+  remove,
+  onValue,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from "./firebase.js";
 
 /** Layout-agnostic DOM accessors */
 function target(name) {
@@ -21,12 +34,149 @@ function viewEl(mode) {
 
 const ADMIN_PIN_KEY = "wtm_admin_pin";
 const DARK_MODE_KEY = "wtm_dark_mode";
-const EDITOR_SESSION_KEY = "wtm_editor";
+const SUPER_ADMIN = "joshelifaz@gmail.com";
+const ADMINS_PATH = "settings/admins";
 const HEADER_LOGO_LIGHT = "/logo192D.png";
 const HEADER_LOGO_DARK = "/logo192T.png";
 
+let authUser = null;
+let authRole = "viewer";
+let adminsMap = {};
+
+function encodeEmail(email) {
+  return email.trim().toLowerCase().replace(/\./g, ",");
+}
+
+function decodeEmail(encoded) {
+  return encoded.replace(/,/g, ".");
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function isAdmin() {
-  return sessionStorage.getItem(EDITOR_SESSION_KEY) === "1";
+  return authRole === "admin";
+}
+
+function evaluateAuthRole() {
+  if (!authUser?.email) {
+    authRole = "viewer";
+  } else {
+    const encoded = encodeEmail(authUser.email);
+    const isAuthorized =
+      authUser.email.toLowerCase() === SUPER_ADMIN || adminsMap[encoded] === true;
+    authRole = isAuthorized ? "admin" : "viewer";
+  }
+
+  state.isEditor = isAdmin();
+  applyRoleUI();
+
+  const appVisible = !target("login-screen")?.classList.contains("hidden");
+  if (appVisible) {
+    applyRoleShell();
+    renderAll();
+  }
+}
+
+function renderAdminEmailList() {
+  const list = target("admin-email-list");
+  if (!list) return;
+
+  const entries = Object.keys(adminsMap).filter((key) => adminsMap[key]);
+  if (!entries.length) {
+    list.innerHTML =
+      '<li class="admin-email-list-empty" data-target="admin-list-empty">אין מנהלים רשומים</li>';
+    return;
+  }
+
+  list.innerHTML = entries
+    .map((encoded) => {
+      const email = decodeEmail(encoded);
+      const isSuper = email.toLowerCase() === SUPER_ADMIN;
+      const removeBtn = isSuper
+        ? ""
+        : `<button type="button" class="btn-cancel" data-action="remove-admin" data-email="${encoded}">הסר</button>`;
+      return `<li><span dir="ltr">${email}</span>${removeBtn}</li>`;
+    })
+    .join("");
+}
+
+function startAdminsListener() {
+  onValue(ref(db, ADMINS_PATH), (snapshot) => {
+    adminsMap = snapshot.val() || {};
+    renderAdminEmailList();
+    evaluateAuthRole();
+  });
+}
+
+async function googleSignIn() {
+  const errorEl = target("login-error");
+  if (errorEl) errorEl.textContent = "";
+
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch (error) {
+    console.error("Google sign-in failed:", error);
+    if (errorEl) errorEl.textContent = "שגיאה בהתחברות עם Google";
+  }
+}
+
+async function addAdminEmail() {
+  if (!isAdmin()) return;
+
+  const input = target("new-admin-input");
+  const email = input?.value?.trim().toLowerCase();
+  if (!email || !isValidEmail(email)) {
+    alert("נא להזין כתובת אימייל תקינה");
+    return;
+  }
+
+  const encoded = encodeEmail(email);
+  try {
+    await set(ref(db, `${ADMINS_PATH}/${encoded}`), true);
+    if (input) input.value = "";
+  } catch (error) {
+    console.error("addAdminEmail failed:", error);
+    alert("שגיאה בהוספת מנהל");
+  }
+}
+
+async function removeAdminEmail(encodedEmail) {
+  if (!isAdmin() || !encodedEmail) return;
+
+  if (decodeEmail(encodedEmail).toLowerCase() === SUPER_ADMIN) return;
+
+  try {
+    await remove(ref(db, `${ADMINS_PATH}/${encodedEmail}`));
+  } catch (error) {
+    console.error("removeAdminEmail failed:", error);
+    alert("שגיאה בהסרת מנהל");
+  }
+}
+
+function initAuth() {
+  startAdminsListener();
+
+  onAuthStateChanged(auth, (user) => {
+    authUser = user;
+
+    if (user) {
+      evaluateAuthRole();
+
+      target("login-screen")?.classList.add("hidden");
+      target("main-app")?.classList.remove("hidden");
+      applyRoleShell();
+      return;
+    }
+
+    authRole = "viewer";
+    state.isEditor = false;
+
+    target("main-app")?.classList.add("hidden");
+    target("login-screen")?.classList.remove("hidden");
+    applyRoleUI();
+  });
 }
 
 function getAdminPin() {
@@ -57,6 +207,49 @@ function applyRoleUI() {
   }
 
   updateLockBadge();
+}
+
+const SHELL_VIEW_TARGETS = [
+  "live-update-view",
+  "admin-media-view",
+  "viewer-status-view",
+];
+
+function hideAllShellViews() {
+  Object.values(CONTENT_VIEWS).forEach((targetName) => {
+    target(targetName)?.classList.add("hidden");
+  });
+  SHELL_VIEW_TARGETS.forEach((name) => {
+    target(name)?.classList.add("hidden");
+  });
+  document.querySelectorAll("[data-view]").forEach((v) => v.classList.remove("active"));
+}
+
+function setViewerTabActive(actionName) {
+  document
+    .querySelectorAll('[data-action="nav-viewer-status"], [data-action="nav-viewer-gallery"]')
+    .forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.action === actionName);
+    });
+}
+
+function applyRoleShell() {
+  const admin = isAdmin();
+  target("content-tab-bar")?.classList.toggle("hidden", !admin);
+  target("viewer-tabs")?.classList.toggle("hidden", admin);
+
+  if (admin) {
+    hideAllShellViews();
+    viewEl("manager")?.classList.add("active");
+    switchTab(state.managerTab || "dashboard");
+    return;
+  }
+
+  hideAllShellViews();
+  navViewerStatus();
+  document.querySelectorAll('[data-action="switch-tab"]').forEach((btn) => {
+    btn.classList.remove("active");
+  });
 }
 
 function updateConnectionStatus() {
@@ -117,84 +310,33 @@ function mergeRemoteState(remote) {
 }
 
 // ══════════════════════════════════════════════════════
-// PIN
+// AUTH ACTIONS
 // ══════════════════════════════════════════════════════
-let pinBuffer = "";
-
-function pinKey(k) {
-  if (k === "✓") {
-    pinSubmit();
-    return;
-  }
-  if (pinBuffer.length >= 4) return;
-  pinBuffer += k;
-  updatePinDots();
-  if (pinBuffer.length === 4) setTimeout(pinSubmit, 150);
-}
-
-function pinDel() {
-  pinBuffer = pinBuffer.slice(0, -1);
-  updatePinDots();
-}
-
-function updatePinDots() {
-  for (let i = 0; i < 4; i++) {
-    document
-      .querySelector(`[data-target="pin-dot"][data-index="${i}"]`)
-      ?.classList.toggle("filled", i < pinBuffer.length);
-  }
-}
-
-function pinSubmit() {
-  const pin = state.settings?.adminPin || ADMIN_PIN;
-  if (pinBuffer === pin) {
-    sessionStorage.setItem(EDITOR_SESSION_KEY, "1");
-    hidePinOverlay();
-  } else {
-    target("pin-error").textContent = "❌ קוד שגוי";
-    pinBuffer = "";
-    updatePinDots();
-    setTimeout(() => (target("pin-error").textContent = ""), 1500);
-  }
-}
-
-function enterAsViewer() {
-  hidePinOverlay();
-}
-
-function hidePinOverlay() {
-  target("login-screen").classList.add("hidden");
-  target("main-app")?.classList.remove("hidden");
-  applyRoleUI();
-  renderAll();
-}
 
 function lockApp() {
-  if (!isAdmin()) {
-    target("login-screen").classList.remove("hidden");
-    target("main-app")?.classList.add("hidden");
-    pinBuffer = "";
-    updatePinDots();
-    target("pin-error").textContent = "";
-  } else {
-    sessionStorage.removeItem(EDITOR_SESSION_KEY);
-    state.isEditor = false;
-    applyRoleUI();
-    renderAll();
-  }
+  const errorEl = target("login-error");
+  if (errorEl) errorEl.textContent = "";
+  signOut(auth).catch((error) => console.error("lockApp signOut failed:", error));
 }
 
-function logout() {
+async function logout() {
   closeKebabMenu();
-  target("main-app")?.classList.add("hidden");
-  target("login-screen")?.classList.remove("hidden");
-  pinBuffer = "";
-  updatePinDots();
-  target("pin-error").textContent = "";
+  const errorEl = target("login-error");
+  if (errorEl) errorEl.textContent = "";
   const pinInput = target("setting-admin-pin");
   if (pinInput) pinInput.value = "";
-  sessionStorage.removeItem(EDITOR_SESSION_KEY);
+
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("logout failed:", error);
+  }
+
+  authUser = null;
+  authRole = "viewer";
   state.isEditor = false;
+  target("main-app")?.classList.add("hidden");
+  target("login-screen")?.classList.remove("hidden");
   applyRoleUI();
 }
 
@@ -338,11 +480,11 @@ function toArray(value) {
 }
 
 function getLapLog() {
-  return toArray(state.lapLog);
+  return toArray(state?.lapLog);
 }
 
 function getSchedule() {
-  return toArray(state.schedule);
+  return toArray(state?.schedule);
 }
 
 function getRaceDurationMs() {
@@ -592,6 +734,8 @@ function tick() {
     ":" +
     String(d.getSeconds()).padStart(2, "0");
 
+  if (!state?.settings) return;
+
   if (!state.raceStarted) {
     resetRaceClockUI();
     return;
@@ -663,12 +807,36 @@ const CONTENT_VIEWS = {
 
 function switchTab(tab) {
   state.managerTab = tab;
+  hideAllShellViews();
   Object.entries(CONTENT_VIEWS).forEach(([name, targetName]) => {
     target(targetName)?.classList.toggle("hidden", name !== tab);
   });
   document.querySelectorAll('[data-action="switch-tab"]').forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   });
+  viewEl("manager")?.classList.add("active");
+}
+
+function navAdminMedia() {
+  if (!isAdmin()) return;
+  hideAllShellViews();
+  target("admin-media-view")?.classList.remove("hidden");
+  document.querySelectorAll('[data-action="switch-tab"]').forEach((btn) => {
+    btn.classList.remove("active");
+  });
+  closeKebabMenu();
+}
+
+function navViewerStatus() {
+  hideAllShellViews();
+  target("viewer-status-view")?.classList.remove("hidden");
+  setViewerTabActive("nav-viewer-status");
+}
+
+function navViewerGallery() {
+  hideAllShellViews();
+  target("live-update-view")?.classList.remove("hidden");
+  setViewerTabActive("nav-viewer-gallery");
 }
 
 function setManagerTab(panel) {
@@ -695,10 +863,14 @@ function toggleSettingsView() {
 
 function setMode(m) {
   state.mode = m;
-  document.querySelectorAll("[data-view]").forEach((v) => v.classList.remove("active"));
+  hideAllShellViews();
+  document.querySelectorAll('[data-action="nav-viewer-status"], [data-action="nav-viewer-gallery"]').forEach((btn) => {
+    btn.classList.remove("active");
+  });
 
   const tabBar = target("content-tab-bar");
   if (tabBar) tabBar.classList.toggle("hidden", m !== "manager" && m !== "gear");
+  target("viewer-tabs")?.classList.toggle("hidden", isAdmin());
 
   if (m === "gear") {
     viewEl("manager").classList.add("active");
@@ -756,7 +928,7 @@ function initKebabMenu() {
 // SCHEDULE
 // ══════════════════════════════════════════════════════
 function getCurrentScheduleRow() {
-  if (!state.raceStarted) return -1;
+  if (!state?.raceStarted) return -1;
   const now = new Date();
   const nowM = now.getHours() * 60 + now.getMinutes();
   let best = 0;
@@ -768,15 +940,20 @@ function getCurrentScheduleRow() {
 }
 
 function renderSchedule() {
+  const tbody = target("schedule-body");
+  if (!tbody || !state?.settings) return;
+
+  const targetLaps = state?.settings?.targetLaps ?? 10;
+  const lapDist = state?.settings?.lapDist ?? 8;
   const clockIdx = getCurrentScheduleRow();
   const schedule = getSchedule();
-  const tbody = target("schedule-body");
+
   tbody.innerHTML = schedule
     .map((row, i) => {
       const cls =
-        i === clockIdx && state.raceStarted
+        i === clockIdx && state?.raceStarted
           ? "current-row"
-          : i < clockIdx && state.raceStarted
+          : i < clockIdx && state?.raceStarted
             ? "completed-row"
             : "";
       const editBtn = isAdmin()
@@ -801,8 +978,8 @@ function renderSchedule() {
 
   const lapLog = getLapLog();
   const now2 = Date.now();
-  if (state.raceStarted && (lapLog.length > 0 || state.currentLapStart)) {
-    const raceStart2 = lapLog[0]?.lapStart || state.currentLapStart;
+  if (state?.raceStarted && (lapLog.length > 0 || state?.currentLapStart)) {
+    const raceStart2 = lapLog[0]?.lapStart || state?.currentLapStart;
     const elapsed2 = now2 - raceStart2;
     const raceMs2 = getRaceDurationMs();
     const pct = Math.min(100, (elapsed2 / raceMs2) * 100);
@@ -815,15 +992,14 @@ function renderSchedule() {
     target("ring-pct").textContent = Math.round(pct) + "%";
     target("ring-meta-time").textContent = Math.round(pct) + "%";
     const lapsDone2 = lapLog.filter((l) => l.breakEnd).length;
-    target("ring-meta-laps").textContent = lapsDone2 + " / " + state.settings.targetLaps;
-    target("ring-meta-km").textContent =
-      (lapsDone2 * (state.settings.lapDist || 8)).toFixed(1) + ' ק"מ';
-  } else if (!state.raceStarted) {
+    target("ring-meta-laps").textContent = lapsDone2 + " / " + targetLaps;
+    target("ring-meta-km").textContent = (lapsDone2 * lapDist).toFixed(1) + ' ק"מ';
+  } else if (!state?.raceStarted) {
     const ring = target("ring-time-progress");
     if (ring) ring.style.strokeDashoffset = String(2 * Math.PI * 35);
     target("ring-pct").textContent = "0%";
     target("ring-meta-time").textContent = "0%";
-    target("ring-meta-laps").textContent = `0 / ${state.settings.targetLaps}`;
+    target("ring-meta-laps").textContent = `0 / ${targetLaps}`;
     target("ring-meta-km").textContent = '0 ק"מ';
   }
 
@@ -1041,6 +1217,8 @@ function clearData() {
 // RENDER ALL
 // ══════════════════════════════════════════════════════
 function renderAll() {
+  if (!state || !state.settings) return;
+
   applyRoleUI();
   renderSchedule();
   renderLapLog();
@@ -1155,13 +1333,20 @@ function updateStateAndRender(remote) {
   state.mode = clientFields.mode;
   state.editingId = clientFields.editingId;
 
-  target("setting-target-laps").value = state.settings.targetLaps;
-  target("setting-lap-dist").value = state.settings.lapDist || 8;
-  target("setting-lap-pace").value = state.settings.lapPaceMin;
-  target("setting-target-lap").value =
-    state.settings.targetLap ?? state.settings.lapPaceMin ?? 143;
-  target("setting-target-pit").value = state.settings.targetPit ?? 5;
-  target("setting-duration").value = state.settings.durationHours;
+  const settings = state?.settings ?? {};
+  const lapsInput = target("setting-target-laps");
+  const distInput = target("setting-lap-dist");
+  const paceInput = target("setting-lap-pace");
+  const targetLapInput = target("setting-target-lap");
+  const targetPitInput = target("setting-target-pit");
+  const durationInput = target("setting-duration");
+
+  if (lapsInput) lapsInput.value = settings.targetLaps ?? 10;
+  if (distInput) distInput.value = settings.lapDist ?? 8;
+  if (paceInput) paceInput.value = settings.lapPaceMin ?? 144;
+  if (targetLapInput) targetLapInput.value = settings.targetLap ?? settings.lapPaceMin ?? 143;
+  if (targetPitInput) targetPitInput.value = settings.targetPit ?? 5;
+  if (durationInput) durationInput.value = settings.durationHours ?? 25;
 
   renderAll();
 
@@ -1177,14 +1362,8 @@ function initActionDelegation() {
     if (!el) return;
 
     switch (el.dataset.action) {
-      case "pin-key":
-        pinKey(el.dataset.pinValue);
-        break;
-      case "pin-delete":
-        pinDel();
-        break;
-      case "enter-viewer":
-        enterAsViewer();
+      case "google-sign-in":
+        googleSignIn();
         break;
       case "toggle-kebab":
         e.stopPropagation();
@@ -1198,7 +1377,8 @@ function initActionDelegation() {
         logout();
         break;
       case "go-home":
-        setMode("manager");
+        if (isAdmin()) setMode("manager");
+        else navViewerStatus();
         closeKebabMenu();
         break;
       case "toggle-theme":
@@ -1219,6 +1399,19 @@ function initActionDelegation() {
       case "switch-tab":
         switchTab(el.dataset.tab);
         break;
+      case "nav-admin-media":
+        navAdminMedia();
+        break;
+      case "nav-viewer-status":
+        navViewerStatus();
+        break;
+      case "nav-viewer-gallery":
+        navViewerGallery();
+        break;
+      case "upload-live-image":
+      case "submit-live-photo":
+        handleUploadLiveImage();
+        break;
       case "close-editor":
         closeEditor();
         break;
@@ -1227,6 +1420,12 @@ function initActionDelegation() {
         break;
       case "save-settings":
         saveSettings();
+        break;
+      case "add-admin-email":
+        addAdminEmail();
+        break;
+      case "remove-admin":
+        removeAdminEmail(el.dataset.email);
         break;
       case "export-data":
         exportData();
@@ -1263,23 +1462,17 @@ function initApp() {
   initDarkMode();
   initActionDelegation();
   initKebabMenu();
+  initAuth();
   updateConnectionStatus();
-  setManagerTab("dashboard");
   updateSettingsNavButton();
 
   window.addEventListener("online", updateConnectionStatus);
   window.addEventListener("offline", updateConnectionStatus);
 
-  if (isAdmin()) {
-    target("login-screen").classList.add("hidden");
-    target("main-app")?.classList.remove("hidden");
-  }
+  initLiveUpdates({ isAdmin });
 }
 
 function exposeUiGlobals() {
-  window.pinKey = pinKey;
-  window.pinDel = pinDel;
-  window.enterAsViewer = enterAsViewer;
   window.lockApp = lockApp;
   window.logout = logout;
   window.setMode = setMode;
