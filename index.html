@@ -267,6 +267,7 @@
   /* Admin viewer preview — pure mirror of public viewer shell */
   body.viewer-preview-mode #action-area,
   body.viewer-preview-mode [data-target="content-tab-bar"],
+  body.viewer-preview-mode [data-target="admin-cheer-ticker"],
   body.viewer-preview-mode [data-view="manager"],
   body.viewer-preview-mode [data-view="settings"],
   body.viewer-preview-mode [data-target="admin-media-view"] {
@@ -276,7 +277,8 @@
     display: flex !important;
   }
   body.viewer-preview-mode [data-target="viewer-status-view"],
-  body.viewer-preview-mode [data-target="live-update-view"] {
+  body.viewer-preview-mode [data-target="live-update-view"],
+  body.viewer-preview-mode [data-target="cheer-board-view"] {
     pointer-events: none;
     user-select: none;
     -webkit-user-select: none;
@@ -285,6 +287,14 @@
   body.viewer-preview-mode [data-target="viewer-tabs"] button {
     pointer-events: auto;
     user-select: auto;
+  }
+  body.viewer-preview-mode.is-admin [data-target="cheer-board-view"] .cheer-compose--admin,
+  body.viewer-preview-mode.is-admin [data-target="cheer-board-view"] .cheer-compose--admin input,
+  body.viewer-preview-mode.is-admin [data-target="cheer-board-view"] .cheer-compose--admin button,
+  body.viewer-preview-mode.is-admin [data-target="cheer-board-view"] .cheer-delete-btn {
+    pointer-events: auto !important;
+    user-select: auto;
+    cursor: pointer;
   }
 
   /* DARK MODE */
@@ -370,6 +380,93 @@
   body.dark-mode [data-target="admin-gallery-grid"] article{background:var(--surface);border-color:var(--border);}
   body.dark-mode .live-upload-form .form-group input{background:var(--surface);color:var(--text);border-color:var(--border);}
 
+  /* CHEER BOARD */
+  .cheer-compose{padding:16px 20px;border-bottom:1px solid var(--border);background:#ffffff;}
+  .cheer-compose-row{display:flex;gap:10px;align-items:stretch;flex-direction:row-reverse;}
+  .cheer-compose input[type="text"]{flex:1;min-width:0;background:#ffffff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:.88rem;text-align:right;direction:rtl;}
+  .cheer-compose .btn-save{flex-shrink:0;white-space:nowrap;}
+  .cheer-compose-hint{min-height:1.2em;margin:8px 0 0;font-size:.78rem;color:var(--muted);text-align:right;}
+  .cheer-list{display:flex;flex-direction:column;gap:10px;padding:16px 20px 24px;}
+  .cheer-list-empty{color:var(--muted);text-align:center;padding:24px 12px;font-size:.85rem;margin:0;}
+  .cheer-item{background:#ffffff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.04);text-align:right;direction:rtl;}
+  .cheer-item-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-direction:row-reverse;}
+  .cheer-item-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:1;flex-direction:row-reverse;}
+  .cheer-delete-btn{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid #fecaca;border-radius:8px;background:rgba(254,226,226,.95);color:#dc2626;font-size:.95rem;line-height:1;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .cheer-delete-btn:hover{background:#fee2e2;border-color:#f87171;}
+  .cheer-author{font-weight:700;font-size:.88rem;color:var(--text);}
+  .cheer-time{font-size:.72rem;color:var(--muted);font-family:'Fira Code',monospace;direction:ltr;unicode-bidi:isolate;white-space:nowrap;}
+  .cheer-text{margin:0;font-size:.86rem;line-height:1.5;color:var(--text);word-break:break-word;}
+  body.dark-mode .cheer-compose,
+  body.dark-mode .cheer-item{background:var(--surface);border-color:var(--border);}
+  body.dark-mode .cheer-compose input[type="text"]{background:var(--surface);color:var(--text);border-color:var(--border);}
+  body.dark-mode .cheer-delete-btn{background:rgba(127,29,29,.9);border-color:#991b1b;color:#fecaca;}
+
+  /* ADMIN CHEER TICKER */
+  .admin-cheer-ticker{
+    background:#e2e8f0;
+    color:#334155;
+    border-block-end:1px solid #cbd5e1;
+    min-height:1.6rem;
+    overflow:hidden;
+    direction:rtl;
+  }
+  .admin-cheer-ticker.hidden{display:none;}
+  .admin-cheer-ticker__label{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    padding:0 10px;
+    font-size:.68rem;
+    font-weight:700;
+    letter-spacing:.04em;
+    color:#475569;
+    background:#f8fafc;
+    border-inline-start:1px solid #cbd5e1;
+    line-height:1;
+  }
+  .admin-cheer-ticker__shell{display:flex;align-items:center;min-height:1.6rem;}
+  .admin-cheer-ticker__viewport{
+    flex:1;
+    overflow:hidden;
+    position:relative;
+    min-width:0;
+    display:flex;
+    align-items:center;
+    min-height:1.6rem;
+  }
+  .admin-cheer-ticker__track{
+    display:inline-flex;
+    align-items:center;
+    white-space:nowrap;
+    width:max-content;
+    line-height:1.2;
+    will-change:transform;
+    animation:admin-cheer-ticker-scroll 38s linear infinite;
+  }
+  .admin-cheer-ticker__row{display:inline-flex;align-items:center;gap:0;padding:0;}
+  .admin-cheer-ticker__item{font-size:.76rem;line-height:1.2;padding-inline:1rem;}
+  .admin-cheer-ticker__author{font-weight:700;color:#475569;}
+  .admin-cheer-ticker__sep{opacity:.5;padding-inline:.25rem;font-size:.7rem;color:#64748b;}
+  @keyframes admin-cheer-ticker-scroll{
+    0%{transform:translate3d(0,0,0);}
+    100%{transform:translate3d(50%,0,0);}
+  }
+  body.dark-mode .admin-cheer-ticker{
+    background:#334155;
+    color:#e2e8f0;
+    border-color:#475569;
+  }
+  body.dark-mode .admin-cheer-ticker__label{
+    color:#cbd5e1;
+    background:#3f4f63;
+    border-color:#475569;
+  }
+  body.dark-mode .admin-cheer-ticker__author{color:#f1f5f9;}
+  body.dark-mode .admin-cheer-ticker__sep{color:#94a3b8;}
+  @media (prefers-reduced-motion:reduce){
+    .admin-cheer-ticker__track{animation:none;}
+  }
+
   /* VIEWER SHELL & VIEW SECTIONS */
   .tabs{display:flex;gap:4px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);width:100%;max-width:100vw;box-sizing:border-box;}
   .view-section{width:100%;}
@@ -448,6 +545,16 @@
   </div>
 </div>
 
+<!-- ADMIN CHEER TICKER -->
+<div data-target="admin-cheer-ticker" class="admin-cheer-ticker hidden" dir="rtl" aria-label="עדכוני עידוד חיים" role="marquee">
+  <div class="admin-cheer-ticker__shell">
+    <div class="admin-cheer-ticker__label" aria-hidden="true">✦ הודעות</div>
+    <div class="admin-cheer-ticker__viewport">
+      <div class="admin-cheer-ticker__track" data-target="admin-cheer-ticker-track"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ACTION AREA -->
 <div id="action-area" class="action-bar" data-target="action-bar">
   <button type="button" class="action-btn btn-primary" id="btn-start" data-action="start-lap">התחל סיבוב 1</button>
@@ -467,6 +574,7 @@
 <nav data-target="viewer-tabs" class="tabs hidden" dir="rtl" aria-label="תצוגת צופה">
   <button type="button" class="content-tab active" data-action="nav-viewer-status">סטטוס מרוץ</button>
   <button type="button" class="content-tab" data-action="nav-viewer-gallery">גלריה</button>
+  <button type="button" class="content-tab" data-action="nav-viewer-cheers">קיר עידוד</button>
 </nav>
 
 <!-- MAIN -->
@@ -635,6 +743,20 @@
     <div class="section-title">גלריית עדכונים</div>
     <div data-target="gallery-grid" class="gallery-grid">
       <p data-target="gallery-empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px;font-size:.85rem">אין עדכונים עדיין</p>
+    </div>
+  </section>
+
+  <section data-target="cheer-board-view" class="hidden view-section" dir="rtl">
+    <div class="section-title">קיר עידוד</div>
+    <div class="cheer-compose" data-target="cheer-compose" dir="rtl">
+      <div class="cheer-compose-row">
+        <input type="text" data-target="cheer-input" placeholder="כתבו הודעת עידוד..." maxlength="500" dir="rtl" aria-label="הודעת עידוד">
+        <button type="button" class="btn-save" data-action="submit-cheer">שלח/י</button>
+      </div>
+      <p class="cheer-compose-hint" data-target="cheer-submit-status" aria-live="polite"></p>
+    </div>
+    <div data-target="cheer-list" class="cheer-list" dir="rtl">
+      <p data-target="cheer-list-empty" class="cheer-list-empty">אין הודעות עידוד עדיין. היו הראשונים!</p>
     </div>
   </section>
 

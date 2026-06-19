@@ -7,6 +7,15 @@ import {
   startLiveUpdatesListener,
   stopLiveUpdatesListener,
 } from "./liveUpdates.js";
+import {
+  initCheers,
+  handleSubmitCheer,
+  handleDeleteCheer,
+  refreshCheerBoard,
+  syncAdminCheerTickerVisibility,
+  startCheersListener,
+  stopCheersListener,
+} from "./cheers.js";
 import { GEAR_DATA, LOGISTICS_DATA, ADMIN_PIN } from "./data.js";
 import {
   auth,
@@ -129,6 +138,7 @@ function stopDatabaseListeners() {
   }
   store.stopListening();
   stopLiveUpdatesListener();
+  stopCheersListener();
   appListenersStarted = false;
   adminsMap = {};
 }
@@ -138,6 +148,7 @@ function startAppDataListeners() {
   appListenersStarted = true;
   store.startListening();
   startLiveUpdatesListener();
+  startCheersListener();
 }
 
 function startDatabaseListeners() {
@@ -262,6 +273,7 @@ function applyRoleUI() {
 
   renderMenu();
   updateLockBadge();
+  refreshCheerBoard();
 }
 
 function isInViewerPreview() {
@@ -271,6 +283,15 @@ function isInViewerPreview() {
 function isUploadViewVisible() {
   const uploadView = target("admin-media-view");
   return Boolean(uploadView && !uploadView.classList.contains("hidden"));
+}
+
+function shouldShowAdminCheerTicker() {
+  return (
+    isAdmin() &&
+    state.mode === "manager" &&
+    state.managerTab === "dashboard" &&
+    !isUploadViewVisible()
+  );
 }
 
 function applyAdminShellChrome() {
@@ -287,12 +308,15 @@ function applyAdminShellChrome() {
 
   const showViewerTabs = !admin || preview;
   target("viewer-tabs")?.classList.toggle("hidden", !showViewerTabs);
+
+  syncAdminCheerTickerVisibility();
 }
 
 const SHELL_VIEW_TARGETS = [
   "live-update-view",
   "admin-media-view",
   "viewer-status-view",
+  "cheer-board-view",
 ];
 
 function hideAllShellViews() {
@@ -307,7 +331,9 @@ function hideAllShellViews() {
 
 function setViewerTabActive(actionName) {
   document
-    .querySelectorAll('[data-action="nav-viewer-status"], [data-action="nav-viewer-gallery"]')
+    .querySelectorAll(
+      '[data-action="nav-viewer-status"], [data-action="nav-viewer-gallery"], [data-action="nav-viewer-cheers"]'
+    )
     .forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.action === actionName);
     });
@@ -329,6 +355,7 @@ function applyRoleShell() {
     viewEl("manager")?.classList.add("active");
     switchTab(state.managerTab || "dashboard");
     renderMenu("dashboard");
+    syncAdminCheerTickerVisibility();
     return;
   }
 
@@ -989,6 +1016,12 @@ function navViewerGallery() {
   setViewerTabActive("nav-viewer-gallery");
 }
 
+function navViewerCheers() {
+  hideAllShellViews();
+  target("cheer-board-view")?.classList.remove("hidden");
+  setViewerTabActive("nav-viewer-cheers");
+}
+
 function setManagerTab(panel) {
   switchTab(panel);
 }
@@ -1008,7 +1041,9 @@ function toggleSettingsView() {
 function setMode(m) {
   state.mode = m;
   hideAllShellViews();
-  document.querySelectorAll('[data-action="nav-viewer-status"], [data-action="nav-viewer-gallery"]').forEach((btn) => {
+  document.querySelectorAll(
+    '[data-action="nav-viewer-status"], [data-action="nav-viewer-gallery"], [data-action="nav-viewer-cheers"]'
+  ).forEach((btn) => {
     btn.classList.remove("active");
   });
 
@@ -1651,6 +1686,15 @@ function initActionDelegation() {
       case "nav-viewer-gallery":
         navViewerGallery();
         break;
+      case "nav-viewer-cheers":
+        navViewerCheers();
+        break;
+      case "submit-cheer":
+        handleSubmitCheer();
+        break;
+      case "delete-cheer":
+        handleDeleteCheer(el.dataset.cheerId);
+        break;
       case "upload-live-image":
       case "submit-live-photo":
         handleUploadLiveImage();
@@ -1716,6 +1760,11 @@ function initApp() {
   window.addEventListener("offline", updateConnectionStatus);
 
   initLiveUpdates({ isAdmin });
+  initCheers({
+    getAuthUser: () => authUser,
+    isAdmin,
+    shouldShowAdminTicker: shouldShowAdminCheerTicker,
+  });
 }
 
 function exposeUiGlobals() {
