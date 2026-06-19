@@ -284,7 +284,7 @@ export async function handleUploadLiveImage() {
   const captionInput = queryTarget("upload-caption-input");
   const statusEl = queryTarget("upload-status");
   const submitBtn = queryUploadButton();
-  const defaultBtnLabel = submitBtn?.dataset.defaultLabel || submitBtn?.textContent || "העלה עדכון";
+  const defaultBtnLabel = submitBtn?.dataset.defaultLabel || submitBtn?.textContent || "העלה תמונה";
 
   const file = fileInput?.files?.[0];
   if (!file) {

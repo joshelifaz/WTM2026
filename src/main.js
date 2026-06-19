@@ -260,6 +260,7 @@ function applyRoleUI() {
     state.editingId = null;
   }
 
+  renderMenu();
   updateLockBadge();
 }
 
@@ -296,6 +297,7 @@ function applyRoleShell() {
     hideAllShellViews();
     viewEl("manager")?.classList.add("active");
     switchTab(state.managerTab || "dashboard");
+    renderMenu("dashboard");
     return;
   }
 
@@ -304,6 +306,7 @@ function applyRoleShell() {
   document.querySelectorAll('[data-action="switch-tab"]').forEach((btn) => {
     btn.classList.remove("active");
   });
+  renderMenu();
 }
 
 function updateConnectionStatus() {
@@ -348,6 +351,7 @@ function toggleDarkMode() {
   localStorage.setItem(DARK_MODE_KEY, document.body.classList.contains("dark-mode") ? "1" : "0");
   syncThemeAttribute();
   updateDarkModeButton();
+  renderMenu();
 }
 
 function mergeRemoteState(remote) {
@@ -899,9 +903,10 @@ function switchTab(tab) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   });
   viewEl("manager")?.classList.add("active");
+  renderMenu("dashboard");
 }
 
-function navAdminMedia() {
+function navigateUpload() {
   if (!isAdmin()) return;
   hideAllShellViews();
   target("admin-media-view")?.classList.remove("hidden");
@@ -909,6 +914,23 @@ function navAdminMedia() {
     btn.classList.remove("active");
   });
   closeKebabMenu();
+  renderMenu("upload-image");
+}
+
+function navigateDashboard() {
+  if (!isAdmin()) return;
+  closeKebabMenu();
+  setMode("manager");
+}
+
+function navigateSettings() {
+  if (!isAdmin()) return;
+  closeKebabMenu();
+  setMode("settings");
+}
+
+function navAdminMedia() {
+  navigateUpload();
 }
 
 function navViewerStatus() {
@@ -928,13 +950,7 @@ function setManagerTab(panel) {
 }
 
 function updateSettingsNavButton() {
-  const btn = action("open-settings");
-  if (!btn) return;
-  if (state.mode === "settings") {
-    btn.innerHTML = '<span class="icon">🏠</span> מסך ראשי';
-  } else {
-    btn.innerHTML = '<span class="icon">⚙️</span> הגדרות';
-  }
+  renderMenu();
 }
 
 function toggleSettingsView() {
@@ -960,21 +976,69 @@ function setMode(m) {
     viewEl("manager").classList.add("active");
     switchTab("gear");
     closeKebabMenu();
-    updateSettingsNavButton();
+    renderMenu();
     return;
   }
 
   viewEl(m)?.classList.add("active");
   if (m === "manager") {
     switchTab(state.managerTab || "dashboard");
+    return;
   }
   closeKebabMenu();
-  updateSettingsNavButton();
+  renderMenu(m === "settings" ? "settings" : undefined);
 }
 
 // ══════════════════════════════════════════════════════
 // KEBAB MENU
 // ══════════════════════════════════════════════════════
+const ADMIN_MENU_VIEWS = ["dashboard", "settings", "upload-image"];
+
+const ADMIN_MENU_VIEW_OPTIONS = {
+  dashboard: { action: "navigate-dashboard", label: "🏠 מסך ראשי" },
+  settings: { action: "navigate-settings", label: '<span class="icon">⚙️</span> הגדרות' },
+  "upload-image": { action: "navigate-upload", label: "📷 העלאת תמונה" },
+};
+
+function getAdminViewType() {
+  if (state.mode === "settings") return "settings";
+  const uploadView = target("admin-media-view");
+  if (uploadView && !uploadView.classList.contains("hidden")) return "upload-image";
+  return "dashboard";
+}
+
+function getThemeMenuLabel() {
+  const dark = document.body.classList.contains("dark-mode");
+  return `${dark ? "🌙" : "🌓"} תצוגה בהירה/כהה`;
+}
+
+function renderMenu(viewType = null) {
+  const adminItems = target("admin-kebab-items");
+  const viewerItems = target("viewer-kebab-items");
+
+  if (!isAdmin()) {
+    adminItems?.classList.add("hidden");
+    viewerItems?.classList.remove("hidden");
+    return;
+  }
+
+  viewerItems?.classList.add("hidden");
+  adminItems?.classList.remove("hidden");
+
+  const currentView = viewType || getAdminViewType();
+  const items = ADMIN_MENU_VIEWS.filter((view) => view !== currentView).map((view) => {
+    const { action, label } = ADMIN_MENU_VIEW_OPTIONS[view];
+    return `<button type="button" class="kebab-item" data-action="${action}">${label}</button>`;
+  });
+
+  items.push(
+    `<button type="button" class="kebab-item" data-action="toggle-theme">${getThemeMenuLabel()}</button>`,
+    '<button type="button" class="kebab-item" data-action="logout">התנתק</button>'
+  );
+
+  if (adminItems) adminItems.innerHTML = items.join("");
+}
+
 function openKebabMenu() {
   const dropdown = target("kebab-dropdown");
   const toggle = action("toggle-kebab");
@@ -1487,7 +1551,7 @@ function initActionDelegation() {
         else openKebabMenu();
         break;
       case "open-settings":
-        toggleSettingsView();
+        navigateSettings();
         break;
       case "logout":
         logout();
@@ -1516,7 +1580,16 @@ function initActionDelegation() {
         switchTab(el.dataset.tab);
         break;
       case "nav-admin-media":
-        navAdminMedia();
+        navigateUpload();
+        break;
+      case "navigate-upload":
+        navigateUpload();
+        break;
+      case "navigate-dashboard":
+        navigateDashboard();
+        break;
+      case "navigate-settings":
+        navigateSettings();
         break;
       case "nav-viewer-status":
         navViewerStatus();
