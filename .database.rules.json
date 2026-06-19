@@ -1,8 +1,20 @@
 {
   "rules": {
     "races": {
-      ".read": true, 
-      ".write": true 
+      ".read": true,
+      ".write": true
+    },
+    "race": {
+      "live_updates": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "settings": {
+      "admins": {
+        ".read": true,
+        ".write": true
+      }
     }
   }
 }
