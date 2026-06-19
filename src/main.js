@@ -264,6 +264,31 @@ function applyRoleUI() {
   updateLockBadge();
 }
 
+function isInViewerPreview() {
+  return isAdmin() && state.mode === "viewer-preview";
+}
+
+function isUploadViewVisible() {
+  const uploadView = target("admin-media-view");
+  return Boolean(uploadView && !uploadView.classList.contains("hidden"));
+}
+
+function applyAdminShellChrome() {
+  const admin = isAdmin();
+  const preview = isInViewerPreview();
+  const uploadVisible = isUploadViewVisible();
+
+  document.body.classList.toggle("viewer-preview-mode", preview);
+
+  target("action-bar")?.classList.toggle("hidden", !admin || preview);
+
+  const showAdminTabs = admin && !preview && state.mode === "manager" && !uploadVisible;
+  target("content-tab-bar")?.classList.toggle("hidden", !showAdminTabs);
+
+  const showViewerTabs = !admin || preview;
+  target("viewer-tabs")?.classList.toggle("hidden", !showViewerTabs);
+}
+
 const SHELL_VIEW_TARGETS = [
   "live-update-view",
   "admin-media-view",
@@ -290,10 +315,16 @@ function setViewerTabActive(actionName) {
 
 function applyRoleShell() {
   const admin = isAdmin();
-  target("content-tab-bar")?.classList.toggle("hidden", !admin);
-  target("viewer-tabs")?.classList.toggle("hidden", admin);
+  applyAdminShellChrome();
 
   if (admin) {
+    if (isInViewerPreview()) {
+      hideAllShellViews();
+      navViewerStatus();
+      renderMenu("viewer-preview");
+      return;
+    }
+
     hideAllShellViews();
     viewEl("manager")?.classList.add("active");
     switchTab(state.managerTab || "dashboard");
@@ -895,6 +926,7 @@ const CONTENT_VIEWS = {
 
 function switchTab(tab) {
   state.managerTab = tab;
+  state.mode = "manager";
   hideAllShellViews();
   Object.entries(CONTENT_VIEWS).forEach(([name, targetName]) => {
     target(targetName)?.classList.toggle("hidden", name !== tab);
@@ -903,17 +935,21 @@ function switchTab(tab) {
     btn.classList.toggle("active", btn.dataset.tab === tab);
   });
   viewEl("manager")?.classList.add("active");
+  applyAdminShellChrome();
   renderMenu("dashboard");
 }
 
 function navigateUpload() {
   if (!isAdmin()) return;
+  state.mode = "manager";
   hideAllShellViews();
   target("admin-media-view")?.classList.remove("hidden");
   document.querySelectorAll('[data-action="switch-tab"]').forEach((btn) => {
     btn.classList.remove("active");
   });
+  viewEl("manager")?.classList.remove("active");
   closeKebabMenu();
+  applyAdminShellChrome();
   renderMenu("upload-image");
 }
 
@@ -927,6 +963,14 @@ function navigateSettings() {
   if (!isAdmin()) return;
   closeKebabMenu();
   setMode("settings");
+}
+
+function navigateViewerPreview() {
+  if (!isAdmin()) return;
+  closeKebabMenu();
+  startLiveUpdatesListener();
+  setMode("viewer-preview");
+  renderAll();
 }
 
 function navAdminMedia() {
@@ -968,9 +1012,15 @@ function setMode(m) {
     btn.classList.remove("active");
   });
 
-  const tabBar = target("content-tab-bar");
-  if (tabBar) tabBar.classList.toggle("hidden", m !== "manager" && m !== "gear");
-  target("viewer-tabs")?.classList.toggle("hidden", isAdmin());
+  applyAdminShellChrome();
+
+  if (m === "viewer-preview") {
+    viewEl("manager")?.classList.remove("active");
+    viewEl("settings")?.classList.remove("active");
+    navViewerStatus();
+    renderMenu("viewer-preview");
+    return;
+  }
 
   if (m === "gear") {
     viewEl("manager").classList.add("active");
@@ -992,18 +1042,19 @@ function setMode(m) {
 // ══════════════════════════════════════════════════════
 // KEBAB MENU
 // ══════════════════════════════════════════════════════
-const ADMIN_MENU_VIEWS = ["dashboard", "settings", "upload-image"];
+const ADMIN_MENU_VIEWS = ["dashboard", "settings", "upload-image", "viewer-preview"];
 
 const ADMIN_MENU_VIEW_OPTIONS = {
   dashboard: { action: "navigate-dashboard", label: "🏠 מסך ראשי" },
   settings: { action: "navigate-settings", label: '<span class="icon">⚙️</span> הגדרות' },
   "upload-image": { action: "navigate-upload", label: "📷 העלאת תמונה" },
+  "viewer-preview": { action: "navigate-viewer-preview", label: "תצוגת צופים" },
 };
 
 function getAdminViewType() {
   if (state.mode === "settings") return "settings";
-  const uploadView = target("admin-media-view");
-  if (uploadView && !uploadView.classList.contains("hidden")) return "upload-image";
+  if (state.mode === "viewer-preview") return "viewer-preview";
+  if (isUploadViewVisible()) return "upload-image";
   return "dashboard";
 }
 
@@ -1590,6 +1641,9 @@ function initActionDelegation() {
         break;
       case "navigate-settings":
         navigateSettings();
+        break;
+      case "navigate-viewer-preview":
+        navigateViewerPreview();
         break;
       case "nav-viewer-status":
         navViewerStatus();

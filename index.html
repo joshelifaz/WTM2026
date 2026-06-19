@@ -264,6 +264,29 @@
   body.view-only #action-area { display: none; }
   body.view-only .gear-item { cursor: default; pointer-events: none; }
 
+  /* Admin viewer preview — pure mirror of public viewer shell */
+  body.viewer-preview-mode #action-area,
+  body.viewer-preview-mode [data-target="content-tab-bar"],
+  body.viewer-preview-mode [data-view="manager"],
+  body.viewer-preview-mode [data-view="settings"],
+  body.viewer-preview-mode [data-target="admin-media-view"] {
+    display: none !important;
+  }
+  body.viewer-preview-mode [data-target="viewer-tabs"] {
+    display: flex !important;
+  }
+  body.viewer-preview-mode [data-target="viewer-status-view"],
+  body.viewer-preview-mode [data-target="live-update-view"] {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body.viewer-preview-mode [data-target="viewer-tabs"],
+  body.viewer-preview-mode [data-target="viewer-tabs"] button {
+    pointer-events: auto;
+    user-select: auto;
+  }
+
   /* DARK MODE */
   body.dark-mode{
     --bg:#0f1419;
