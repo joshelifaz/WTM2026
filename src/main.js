@@ -16,6 +16,12 @@ import {
   startCheersListener,
   stopCheersListener,
 } from "./cheers.js";
+import {
+  logAccessIfNeeded,
+  clearAccessLogSession,
+  startAccessLogsListener,
+  stopAccessLogsListener,
+} from "./accessLogs.js";
 import { GEAR_DATA, LOGISTICS_DATA, ADMIN_PIN } from "./data.js";
 import {
   auth,
@@ -62,6 +68,7 @@ function viewEl(mode) {
 const ADMIN_PIN_KEY = "wtm_admin_pin";
 const DARK_MODE_KEY = "wtm_dark_mode";
 const SUPER_ADMIN = "joshelifaz@gmail.com";
+const SUPER_ADMIN_UID = "axbbTldIG9Pg1xfHk5tWrDlPUeJ2";
 const ADMINS_PATH = "settings/admins";
 const HEADER_LOGO_LIGHT = "/logo192D.png";
 const HEADER_LOGO_DARK = "/logo192T.png";
@@ -86,6 +93,10 @@ function isValidEmail(email) {
 
 function isAdmin() {
   return authRole === "admin";
+}
+
+function isSuperAdminUid() {
+  return authUser?.uid === SUPER_ADMIN_UID;
 }
 
 function evaluateAuthRole() {
@@ -139,6 +150,7 @@ function stopDatabaseListeners() {
   store.stopListening();
   stopLiveUpdatesListener();
   stopCheersListener();
+  stopAccessLogsListener();
   appListenersStarted = false;
   adminsMap = {};
 }
@@ -223,9 +235,11 @@ async function removeAdminEmail(encodedEmail) {
 function initAuth() {
   onAuthStateChanged(auth, (user) => {
     stopDatabaseListeners();
+    const previousUid = authUser?.uid;
     authUser = user;
 
     if (user) {
+      void logAccessIfNeeded(user);
       evaluateAuthRole();
 
       target("login-screen")?.classList.add("hidden");
@@ -237,6 +251,7 @@ function initAuth() {
 
     authRole = "viewer";
     state = resetClientRaceState();
+    clearAccessLogSession(previousUid);
 
     target("main-app")?.classList.add("hidden");
     target("login-screen")?.classList.remove("hidden");
@@ -285,12 +300,18 @@ function isUploadViewVisible() {
   return Boolean(uploadView && !uploadView.classList.contains("hidden"));
 }
 
+function isAccessLogsViewVisible() {
+  const accessLogsView = target("access-logs-view");
+  return Boolean(accessLogsView && !accessLogsView.classList.contains("hidden"));
+}
+
 function shouldShowAdminCheerTicker() {
   return (
     isAdmin() &&
     state.mode === "manager" &&
     state.managerTab === "dashboard" &&
-    !isUploadViewVisible()
+    !isUploadViewVisible() &&
+    !isAccessLogsViewVisible()
   );
 }
 
@@ -298,12 +319,14 @@ function applyAdminShellChrome() {
   const admin = isAdmin();
   const preview = isInViewerPreview();
   const uploadVisible = isUploadViewVisible();
+  const accessLogsVisible = isAccessLogsViewVisible();
 
   document.body.classList.toggle("viewer-preview-mode", preview);
 
   target("action-bar")?.classList.toggle("hidden", !admin || preview);
 
-  const showAdminTabs = admin && !preview && state.mode === "manager" && !uploadVisible;
+  const showAdminTabs =
+    admin && !preview && state.mode === "manager" && !uploadVisible && !accessLogsVisible;
   target("content-tab-bar")?.classList.toggle("hidden", !showAdminTabs);
 
   const showViewerTabs = !admin || preview;
@@ -317,9 +340,11 @@ const SHELL_VIEW_TARGETS = [
   "admin-media-view",
   "viewer-status-view",
   "cheer-board-view",
+  "access-logs-view",
 ];
 
 function hideAllShellViews() {
+  stopAccessLogsListener();
   Object.values(CONTENT_VIEWS).forEach((targetName) => {
     target(targetName)?.classList.add("hidden");
   });
@@ -437,6 +462,7 @@ function lockApp() {
 
 async function logout() {
   closeKebabMenu();
+  clearAccessLogSession(authUser?.uid);
   const errorEl = target("login-error");
   if (errorEl) errorEl.textContent = "";
   const pinInput = target("setting-admin-pin");
@@ -1000,6 +1026,21 @@ function navigateViewerPreview() {
   renderAll();
 }
 
+function navigateAccessLogs() {
+  if (!isSuperAdminUid()) return;
+  state.mode = "manager";
+  hideAllShellViews();
+  target("access-logs-view")?.classList.remove("hidden");
+  document.querySelectorAll('[data-action="switch-tab"]').forEach((btn) => {
+    btn.classList.remove("active");
+  });
+  viewEl("manager")?.classList.remove("active");
+  closeKebabMenu();
+  applyAdminShellChrome();
+  startAccessLogsListener();
+  renderMenu("access-logs");
+}
+
 function navAdminMedia() {
   navigateUpload();
 }
@@ -1089,6 +1130,7 @@ const ADMIN_MENU_VIEW_OPTIONS = {
 function getAdminViewType() {
   if (state.mode === "settings") return "settings";
   if (state.mode === "viewer-preview") return "viewer-preview";
+  if (isAccessLogsViewVisible()) return "access-logs";
   if (isUploadViewVisible()) return "upload-image";
   return "dashboard";
 }
@@ -1116,6 +1158,12 @@ function renderMenu(viewType = null) {
     const { action, label } = ADMIN_MENU_VIEW_OPTIONS[view];
     return `<button type="button" class="kebab-item" data-action="${action}">${label}</button>`;
   });
+
+  if (isSuperAdminUid() && currentView !== "access-logs") {
+    items.unshift(
+      '<button type="button" class="kebab-item" data-action="navigate-access-logs">יומן כניסות</button>'
+    );
+  }
 
   items.push(
     `<button type="button" class="kebab-item" data-action="toggle-theme">${getThemeMenuLabel()}</button>`,
@@ -1679,6 +1727,9 @@ function initActionDelegation() {
         break;
       case "navigate-viewer-preview":
         navigateViewerPreview();
+        break;
+      case "navigate-access-logs":
+        navigateAccessLogs();
         break;
       case "nav-viewer-status":
         navViewerStatus();
