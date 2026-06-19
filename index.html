@@ -83,7 +83,7 @@
   .break-timer{font-family:'Inter',sans-serif;font-size:.9rem;color:var(--purple);background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.3);border-radius:6px;padding:6px 12px;display:flex;align-items:center;}
 
   /* PROGRESS */
-  #progress-section{padding:14px 20px;background:#ffffff;border-bottom:1px solid var(--border);}
+  [data-target="progress-section"]{padding:14px 20px;background:#ffffff;border-bottom:1px solid var(--border);}
   .progress-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .progress-label{font-size:.72rem;color:var(--text);font-weight:600;min-width:85px;}
   .progress-bar-bg{flex:1;height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden;}
@@ -94,19 +94,29 @@
   .progress-segment{height:100%;min-width:0;transition:width .8s ease;}
   .progress-segment.lap{background:linear-gradient(90deg,#15803d,#22c55e);}
   .progress-segment.break{background:linear-gradient(90deg,#ca8a04,#eab308);}
-  .progress-pct{font-size:.72rem;color:var(--text);font-weight:700;min-width:40px;text-align:left;font-family:'Fira Code',monospace;}
-  #pace-indicator{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:6px;font-size:.8rem;font-weight:700;margin-top:6px;}
-  #pace-indicator.ahead{background:#f0fdf4;border:1px solid #86efac;color:#15803d;}
-  #pace-indicator.behind{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;}
-  #pace-indicator.ontrack{background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;}
+  .progress-pct{font-size:.72rem;color:var(--text);font-weight:700;min-width:40px;text-align:end;font-family:'Fira Code',monospace;}
+  .pace-indicator{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:6px;font-size:.8rem;font-weight:700;margin-top:6px;}
+  .pace-indicator.ahead{background:#f0fdf4;border:1px solid #86efac;color:#15803d;}
+  .pace-indicator.behind{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;}
+  .pace-indicator.ontrack{background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;}
 
   /* PACE STATUS & DELTA BADGES */
-  #pace-status-card{background:#ffffff;border:1px solid var(--border);border-bottom:none;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.82rem;font-weight:600;}
+  [data-target="pace-status"]{background:#ffffff;border:1px solid var(--border);border-bottom:none;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.82rem;font-weight:600;}
   .pace-status-title{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:700;white-space:nowrap;}
   .pace-status-text{font-weight:700;line-height: 1;}
-  #pace-status-card.ahead{background:#f0fdf4;border-color:#86efac;color:#15803d;}
-  #pace-status-card.behind{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
-  #pace-status-card.neutral{background:#f8fafc;border-color:var(--border);color:var(--text2);}
+  [data-target="pace-status"].ahead{background:#f0fdf4;border-color:#86efac;color:#15803d;}
+  [data-target="pace-status"].behind{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
+  [data-target="pace-status"].neutral{background:#f8fafc;border-color:var(--border);color:var(--text2);}
+  .viewer-dashboard{display:flex;flex-direction:column;gap:0;}
+  .viewer-status-hero{padding:14px 20px 0;}
+  .viewer-status-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:700;border:1px solid var(--border);background:#f8fafc;color:var(--text);}
+  .viewer-status-badge[data-status="on-course"]{background:#f0fdf4;border-color:#86efac;color:#15803d;}
+  .viewer-status-badge[data-status="in-pit"]{background:#fff7ed;border-color:#fdba74;color:#c2410c;}
+  .viewer-status-badge[data-status="waiting"]{background:#f8fafc;border-color:var(--border);color:var(--muted);}
+  .viewer-live-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 20px;background:#ffffff;border-bottom:1px solid var(--border);}
+  .viewer-stat-item{text-align:center;padding:12px 8px;border-radius:10px;background:#f8fafc;border:1px solid var(--border);}
+  .viewer-stat-value{font-family:'Fira Code',monospace;font-size:1.5rem;font-weight:700;color:var(--text);}
+  .viewer-stat-label{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-block-start:4px;}
   .delta-badge{font-size:.68rem;font-weight:700;margin-inline-start:6px;font-family:'Fira Code',monospace;white-space:nowrap;}
   .delta-badge-fast{color:var(--lime);}
   .delta-badge-slow{color:var(--danger);}
@@ -274,11 +284,16 @@
   body.dark-mode .pin-key{background:var(--surface);border-color:var(--border);}
   body.dark-mode #race-clock-bar,
   body.dark-mode #action-area,
-  body.dark-mode #progress-section{background:var(--surface);border-color:var(--border);}
-  body.dark-mode #pace-status-card{background:var(--surface);border-color:var(--border);}
-  body.dark-mode #pace-status-card.ahead{background:#14291f;border-color:#166534;color:#86efac;}
-  body.dark-mode #pace-status-card.behind{background:#2a1515;border-color:#991b1b;color:#fca5a5;}
-  body.dark-mode #pace-status-card.neutral{background:#141c2b;color:var(--text2);}
+  body.dark-mode [data-target="progress-section"]{background:var(--surface);border-color:var(--border);}
+  body.dark-mode [data-target="pace-status"]{background:var(--surface);border-color:var(--border);}
+  body.dark-mode [data-target="pace-status"].ahead{background:#14291f;border-color:#166534;color:#86efac;}
+  body.dark-mode [data-target="pace-status"].behind{background:#2a1515;border-color:#991b1b;color:#fca5a5;}
+  body.dark-mode [data-target="pace-status"].neutral{background:#141c2b;color:var(--text2);}
+  body.dark-mode .viewer-live-stats{background:var(--surface);border-color:var(--border);}
+  body.dark-mode .viewer-stat-item{background:#141c2b;border-color:var(--border);}
+  body.dark-mode .viewer-status-badge{background:#141c2b;border-color:var(--border);}
+  body.dark-mode .viewer-status-badge[data-status="on-course"]{background:#14291f;border-color:#166534;color:#86efac;}
+  body.dark-mode .viewer-status-badge[data-status="in-pit"]{background:#2a1a0a;border-color:#9a3412;color:#fdba74;}
   body.dark-mode .current-card,
   body.dark-mode .lap-log,
   body.dark-mode .settings-section,
@@ -420,21 +435,21 @@
     <!-- Dashboard: progress + prep + now card -->
     <div id="view-dashboard-wrap" data-target="view-dashboard">
     <div id="manager-panel-dashboard" class="manager-panel" data-target="manager-panel" data-panel="dashboard">
-      <div id="progress-section" data-target="progress-section">
+      <div data-target="progress-section">
         <div class="progress-row">
           <div class="progress-label">זמן תחרות</div>
-          <div class="progress-bar-bg"><div class="progress-segments" id="time-progress" data-target="time-progress-bar"></div></div>
-          <div class="progress-pct" id="time-pct" data-target="time-progress-pct">0%</div>
+          <div class="progress-bar-bg"><div class="progress-segments" data-target="time-progress-bar"></div></div>
+          <div class="progress-pct" data-target="time-progress-pct">0%</div>
         </div>
         <div class="progress-row">
           <div class="progress-label">סיבובים</div>
-          <div class="progress-bar-bg"><div class="progress-segments" id="laps-progress" data-target="laps-progress-bar"></div></div>
-          <div class="progress-pct" id="laps-pct" data-target="laps-progress-pct">0/10</div>
+          <div class="progress-bar-bg"><div class="progress-segments" data-target="laps-progress-bar"></div></div>
+          <div class="progress-pct" data-target="laps-progress-pct">0/10</div>
         </div>
-        <div id="pace-indicator" class="ontrack" data-target="pace-indicator"><span>📍</span><span id="pace-text" data-target="pace-indicator-text">טרם התחיל</span></div>
+        <div class="pace-indicator ontrack" data-target="pace-indicator"><span>📍</span><span data-target="pace-indicator-text">טרם התחיל</span></div>
       </div>
 
-      <div id="pace-status-card" class="status-hero neutral" data-target="pace-status">
+      <div class="neutral" data-target="pace-status">
         <div class="pace-status-title">סטטוס קצב</div>
         <div id="pace-status-text" class="pace-status-text" data-target="pace-status-text">טרם התחיל</div>
       </div>
@@ -541,7 +556,7 @@
       <div class="lap-log-header">
         <span>סיבוב</span><span>יציאה</span><span>חזרה</span><span>משך ריצה</span><span>הפסקה</span>
       </div>
-      <div id="lap-log-rows" data-target="lap-log-container"><div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div></div>
+      <div data-target="lap-log-container"><div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div></div>
     </div>
     </div>
     </div>
@@ -599,7 +614,49 @@
   </section>
 
   <section data-target="viewer-status-view" class="hidden view-section" dir="rtl">
-    <div class="p-4 text-center">דאשבורד נתונים נקיים ימוקם כאן</div>
+    <div class="viewer-dashboard">
+      <div class="viewer-status-hero">
+        <span class="viewer-status-badge" data-target="viewer-current-status-badge" data-status="waiting">⚪ ממתין לתחילת המרוץ</span>
+      </div>
+
+      <div class="viewer-live-stats">
+        <div class="viewer-stat-item">
+          <div class="viewer-stat-value" data-target="live-laps-count">0</div>
+          <div class="viewer-stat-label">סיבובים</div>
+        </div>
+        <div class="viewer-stat-item">
+          <div class="viewer-stat-value" data-target="live-km-total">0.0</div>
+          <div class="viewer-stat-label">ק"מ כולל <span style="font-size:.55rem;opacity:.7">(8 ק"מ / סיבוב)</span></div>
+        </div>
+      </div>
+
+      <div data-target="progress-section">
+        <div class="progress-row">
+          <div class="progress-label">זמן תחרות</div>
+          <div class="progress-bar-bg"><div class="progress-segments" data-target="time-progress-bar"></div></div>
+          <div class="progress-pct" data-target="time-progress-pct">0%</div>
+        </div>
+        <div class="progress-row">
+          <div class="progress-label">סיבובים</div>
+          <div class="progress-bar-bg"><div class="progress-segments" data-target="laps-progress-bar"></div></div>
+          <div class="progress-pct" data-target="laps-progress-pct">0/10</div>
+        </div>
+        <div class="pace-indicator ontrack" data-target="pace-indicator"><span>📍</span><span data-target="pace-indicator-text">טרם התחיל</span></div>
+      </div>
+
+      <div class="neutral" data-target="pace-status">
+        <div class="pace-status-title">סטטוס קצב</div>
+        <div class="pace-status-text" data-target="pace-status-text">טרם התחיל</div>
+      </div>
+    </div>
+
+    <div class="section-title">יומן סיבובים</div>
+    <div class="lap-log">
+      <div class="lap-log-header">
+        <span>סיבוב</span><span>יציאה</span><span>חזרה</span><span>משך ריצה</span><span>הפסקה</span>
+      </div>
+      <div data-target="lap-log-container"><div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div></div>
+    </div>
   </section>
 
   <!-- SETTINGS VIEW -->

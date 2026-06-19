@@ -29,6 +29,18 @@ function targets(name) {
   return document.querySelectorAll(`[data-target="${name}"]`);
 }
 
+function setAllTargetText(name, text) {
+  targets(name).forEach((el) => {
+    el.textContent = text;
+  });
+}
+
+function setAllTargetHtml(name, html) {
+  targets(name).forEach((el) => {
+    el.innerHTML = html;
+  });
+}
+
 function action(name) {
   return document.querySelector(`[data-action="${name}"]`);
 }
@@ -411,15 +423,15 @@ function resetRaceClockUI() {
 }
 
 function resetRaceProgressUI() {
-  target("time-progress-bar").innerHTML = "";
-  target("laps-progress-bar").innerHTML = "";
-  target("time-progress-pct").textContent = "0%";
-  target("laps-progress-pct").textContent = `0/${state.settings?.targetLaps || 10}`;
+  setAllTargetHtml("time-progress-bar", "");
+  setAllTargetHtml("laps-progress-bar", "");
+  setAllTargetText("time-progress-pct", "0%");
+  setAllTargetText("laps-progress-pct", `0/${state.settings?.targetLaps || 10}`);
 
-  const pi = target("pace-indicator");
-  const pt = target("pace-indicator-text");
-  if (pi) pi.className = "pace-indicator ontrack";
-  if (pt) pt.textContent = "טרם התחיל";
+  targets("pace-indicator").forEach((el) => {
+    el.className = "pace-indicator ontrack";
+  });
+  setAllTargetText("pace-indicator-text", "טרם התחיל");
 
   const ring = target("ring-time-progress");
   if (ring) ring.style.strokeDashoffset = String(2 * Math.PI * 35);
@@ -430,16 +442,19 @@ function resetRaceProgressUI() {
 }
 
 function resetRaceLiveUI() {
-  target("live-laps-count").textContent = "0";
-  target("live-km-total").textContent = "0.0";
-  target("live-status-icon").textContent = "🏕️";
+  setAllTargetText("live-laps-count", "0");
+  setAllTargetText("live-km-total", "0.0");
+  setAllTargetText("live-status-icon", "🏕️");
+  renderViewerCurrentStatus();
   target("live-timeline").innerHTML =
     '<div style="color:var(--muted);font-size:.8rem;padding:10px">ממתין לתחילת המרוץ...</div>';
 }
 
 function resetRaceTablesUI() {
-  target("lap-log-container").innerHTML =
-    '<div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div>';
+  setAllTargetHtml(
+    "lap-log-container",
+    '<div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div>'
+  );
 }
 
 function applyLocalRaceReset() {
@@ -580,40 +595,36 @@ function buildTimelineSegments(now = Date.now()) {
 }
 
 function renderSegmentBar(targetName, segments, raceMs, filterType = null) {
-  const bar = target(targetName);
-  if (!bar) return;
-
   const filtered = filterType ? segments.filter((seg) => seg.type === filterType) : segments;
-  if (!filtered.length) {
-    bar.innerHTML = "";
-    return;
-  }
+  const html = !filtered.length
+    ? ""
+    : filtered
+        .map((seg) => {
+          const pct = Math.max(0.15, (seg.ms / raceMs) * 100);
+          return `<div class="progress-segment ${seg.type}" style="width:${pct}%"></div>`;
+        })
+        .join("");
 
-  bar.innerHTML = filtered
-    .map((seg) => {
-      const pct = Math.max(0.15, (seg.ms / raceMs) * 100);
-      return `<div class="progress-segment ${seg.type}" style="width:${pct}%"></div>`;
-    })
-    .join("");
+  setAllTargetHtml(targetName, html);
 }
 
 function renderProgressBars(now = Date.now()) {
   if (!state.raceStarted) {
-    target("time-progress-bar").innerHTML = "";
-    target("laps-progress-bar").innerHTML = "";
-    target("time-progress-pct").textContent = "0%";
-    target("laps-progress-pct").textContent = `0/${state.settings?.targetLaps || 10}`;
+    setAllTargetHtml("time-progress-bar", "");
+    setAllTargetHtml("laps-progress-bar", "");
+    setAllTargetText("time-progress-pct", "0%");
+    setAllTargetText("laps-progress-pct", `0/${state.settings?.targetLaps || 10}`);
     return;
   }
 
-  const { segments, raceMs, raceStart, elapsedPct } = buildTimelineSegments(now);
+  const { segments, raceMs, elapsedPct } = buildTimelineSegments(now);
   renderSegmentBar("time-progress-bar", segments, raceMs);
   renderSegmentBar("laps-progress-bar", segments, raceMs, "lap");
 
-  target("time-progress-pct").textContent = `${Math.round(elapsedPct)}%`;
+  setAllTargetText("time-progress-pct", `${Math.round(elapsedPct)}%`);
 
   const lapsDone = getLapLog().filter((lap) => lap.breakEnd).length;
-  target("laps-progress-pct").textContent = `${lapsDone}/${state.settings.targetLaps}`;
+  setAllTargetText("laps-progress-pct", `${lapsDone}/${state.settings.targetLaps}`);
 }
 
 function updateCurrentLapCard() {
@@ -730,34 +741,61 @@ function calculateCumulativeDelta() {
 }
 
 function renderPaceStatus() {
-  const card = target("pace-status");
-  const text = target("pace-status-text");
-  if (!card || !text) return;
+  let stateClass = "neutral";
+  let message = "טרם התחיל";
 
   if (!state.raceStarted) {
-    card.className = "neutral";
-    text.textContent = "טרם התחיל";
+    applyPaceStatusToAll(stateClass, message);
     return;
   }
 
   const { deltaMs, completedLaps } = calculateCumulativeDelta();
   if (completedLaps === 0) {
-    card.className = "neutral";
-    text.textContent = "אין סיבובים מושלמים עדיין";
+    message = "אין סיבובים מושלמים עדיין";
+    applyPaceStatusToAll(stateClass, message);
     return;
   }
 
   const deltaMin = Math.round(Math.abs(deltaMs) / 60000);
   if (deltaMs < 0) {
-    card.className = "ahead";
-    text.textContent = `🟢 מקדים את התוכנית ב-${deltaMin} דקות`;
+    stateClass = "ahead";
+    message = `🟢 מקדים את התוכנית ב-${deltaMin} דקות`;
   } else if (deltaMs > 0) {
-    card.className = "behind";
-    text.textContent = `🔴 בפיגור של ${deltaMin} דקות`;
+    stateClass = "behind";
+    message = `🔴 בפיגור של ${deltaMin} דקות`;
   } else {
-    card.className = "ahead";
-    text.textContent = "🟢 בדיוק בקצב התוכנית";
+    stateClass = "ahead";
+    message = "🟢 בדיוק בקצב התוכנית";
   }
+
+  applyPaceStatusToAll(stateClass, message);
+}
+
+function applyPaceStatusToAll(stateClass, message) {
+  targets("pace-status").forEach((card) => {
+    card.className = stateClass;
+  });
+  setAllTargetText("pace-status-text", message);
+}
+
+function renderViewerCurrentStatus() {
+  let status = "waiting";
+  let label = "⚪ ממתין לתחילת המרוץ";
+
+  if (state.raceStarted) {
+    if (state.currentLapEnd === null && state.currentLapStart) {
+      status = "on-course";
+      label = "🟢 במסלול";
+    } else {
+      status = "in-pit";
+      label = "🟠 בפיט / במנוחה";
+    }
+  }
+
+  targets("viewer-current-status-badge").forEach((el) => {
+    el.dataset.status = status;
+    el.textContent = label;
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -819,22 +857,26 @@ function tick() {
 
   const expectedLaps = elapsed / (state.settings.lapPaceMin * 60000);
   const diff = lapsDone - expectedLaps;
-  const pi = target("pace-indicator");
-  const pt = target("pace-indicator-text");
+  let paceClass = "ontrack";
+  let paceText = "✓ בדיוק בקצב";
   if (diff > 0.3) {
-    pi.className = "pace-indicator ahead";
-    pt.textContent = `⬆ ${diff.toFixed(1)} סיבוב קדימה ביעד`;
+    paceClass = "ahead";
+    paceText = `⬆ ${diff.toFixed(1)} סיבוב קדימה ביעד`;
   } else if (diff < -0.5) {
-    pi.className = "pace-indicator behind";
-    pt.textContent = `⬇ פיגור של ${Math.abs(diff).toFixed(1)} סיבוב`;
-  } else {
-    pi.className = "pace-indicator ontrack";
-    pt.textContent = "✓ בדיוק בקצב";
+    paceClass = "behind";
+    paceText = `⬇ פיגור של ${Math.abs(diff).toFixed(1)} סיבוב`;
   }
 
-  target("live-laps-count").textContent = lapsDone;
-  target("live-km-total").textContent = (lapsDone * (state.settings.lapDist || 8)).toFixed(1);
-  target("live-status-icon").textContent = state.currentLapEnd === null ? "🏃" : "🏕️";
+  targets("pace-indicator").forEach((el) => {
+    el.className = `pace-indicator ${paceClass}`;
+  });
+  setAllTargetText("pace-indicator-text", paceText);
+
+  const lapDist = state.settings.lapDist || 8;
+  setAllTargetText("live-laps-count", String(lapsDone));
+  setAllTargetText("live-km-total", (lapsDone * lapDist).toFixed(1));
+  setAllTargetText("live-status-icon", state.currentLapEnd === null ? "🏃" : "🏕️");
+  renderViewerCurrentStatus();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1047,14 +1089,14 @@ function renderSchedule() {
   renderProgressBars(now2);
 }
 
-function renderLapLog() {
-  const container = target("lap-log-container");
+const LAP_LOG_EMPTY_HTML =
+  '<div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div>';
+
+function buildLapLogHtml() {
   const lapLog = getLapLog();
 
   if (lapLog.length === 0) {
-    container.innerHTML =
-      '<div style="color:var(--muted);text-align:center;padding:20px;font-size:.8rem">אין סיבובים מוגמרים</div>';
-    return;
+    return LAP_LOG_EMPTY_HTML;
   }
 
   const targetLapMs = getTargetLapMs();
@@ -1102,7 +1144,11 @@ function renderLapLog() {
     }
   });
 
-  container.innerHTML = html;
+  return html;
+}
+
+function renderLapLog() {
+  setAllTargetHtml("lap-log-container", buildLapLogHtml());
 }
 
 // ══════════════════════════════════════════════════════
@@ -1265,10 +1311,12 @@ function renderAll() {
   renderLapLog();
   renderGear();
   renderLive();
+  renderProgressBars();
   updateLockBadge();
   updateActionButtons();
   updateFinishRaceButton();
   renderPaceStatus();
+  renderViewerCurrentStatus();
 }
 
 function updateFinishRaceButton() {
