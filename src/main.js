@@ -3,6 +3,7 @@ import { store } from "./store.js";
 import {
   initLiveUpdates,
   handleUploadLiveImage,
+  handleDeleteLiveImage,
   startLiveUpdatesListener,
   stopLiveUpdatesListener,
 } from "./liveUpdates.js";
@@ -1459,6 +1460,18 @@ function updateStateAndRender(remote) {
   }
 }
 
+async function deleteImageClick(docId, storagePath) {
+  if (!isAdmin() || !docId) return;
+  if (!confirm("האם למחוק תמונה זו מהגלריה?")) return;
+
+  try {
+    await handleDeleteLiveImage(docId, storagePath);
+  } catch (error) {
+    console.error("delete image failed:", error);
+    alert("שגיאה במחיקת התמונה. נסה שוב.");
+  }
+}
+
 function initActionDelegation() {
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-action]");
@@ -1514,6 +1527,9 @@ function initActionDelegation() {
       case "upload-live-image":
       case "submit-live-photo":
         handleUploadLiveImage();
+        break;
+      case "delete-image":
+        deleteImageClick(el.dataset.docId, el.dataset.storagePath);
         break;
       case "close-editor":
         closeEditor();

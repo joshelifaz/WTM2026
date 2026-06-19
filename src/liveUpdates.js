@@ -5,9 +5,11 @@ import {
   onValue,
   push,
   set,
+  remove,
   storageRef,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
 } from "./firebase.js";
 
 const LIVE_UPDATES_PATH = "race/live_updates";
@@ -16,9 +18,28 @@ const MAX_WIDTH = 800;
 const JPEG_QUALITY = 0.8;
 const UPLOAD_ACTIONS = ["upload-live-image", "submit-live-photo"];
 const UPLOAD_TIMEOUT_MS = 60_000;
+const GALLERY_GRID_TARGETS = ["gallery-grid", "admin-gallery-grid"];
+const GALLERY_EMPTY_HTML =
+  '<p data-target="gallery-empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px;font-size:.85rem">אין עדכונים עדיין</p>';
+const ADMIN_GALLERY_EMPTY_HTML =
+  '<p data-target="admin-gallery-empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px;font-size:.85rem">אין עדכונים עדיין</p>';
 
 function queryTarget(name) {
   return document.querySelector(`[data-target="${name}"]`);
+}
+
+function queryTargets(name) {
+  return document.querySelectorAll(`[data-target="${name}"]`);
+}
+
+function getGalleryGrids() {
+  return GALLERY_GRID_TARGETS.flatMap((name) => [...queryTargets(name)]);
+}
+
+function emptyHtmlForGrid(grid) {
+  return grid.dataset.target === "admin-gallery-grid"
+    ? ADMIN_GALLERY_EMPTY_HTML
+    : GALLERY_EMPTY_HTML;
 }
 
 function canvasToBlob(canvas, quality) {
@@ -131,7 +152,8 @@ function showUploadSuccess(submitBtn, statusEl, fileInput, captionInput, default
 async function runUploadPipeline(file, caption) {
   const blob = await withTimeout(compressImage(file), 15_000, "Image compression");
   const timestamp = Date.now();
-  const fileRef = storageRef(storage, `${STORAGE_FOLDER}/${timestamp}.jpg`);
+  const storagePath = `${STORAGE_FOLDER}/${timestamp}.jpg`;
+  const fileRef = storageRef(storage, storagePath);
 
   await withTimeout(
     uploadBytes(fileRef, blob, { contentType: "image/jpeg" }),
@@ -146,10 +168,26 @@ async function runUploadPipeline(file, caption) {
       imageUrl,
       caption,
       timestamp,
+      storagePath,
     }),
     10_000,
     "Database write"
   );
+}
+
+function resolveStoragePath(item) {
+  if (item?.storagePath) return item.storagePath;
+  if (!item?.imageUrl) return "";
+
+  try {
+    const url = new URL(item.imageUrl);
+    const encodedPath = url.pathname.split("/o/")[1]?.split("?")[0];
+    if (encodedPath) return decodeURIComponent(encodedPath);
+  } catch {
+    return "";
+  }
+
+  return "";
 }
 
 function formatGalleryTime(timestamp) {
@@ -165,7 +203,7 @@ function formatGalleryTime(timestamp) {
   );
 }
 
-function createGalleryItem(key, item) {
+function createGalleryItem(key, item, includeDelete = false) {
   const article = document.createElement("article");
   article.setAttribute("data-update-id", key);
 
@@ -174,6 +212,25 @@ function createGalleryItem(key, item) {
   img.alt = item.caption || "עדכון מהשטח";
   img.loading = "lazy";
 
+  if (includeDelete) {
+    const mediaWrap = document.createElement("div");
+    mediaWrap.setAttribute("data-target", "gallery-media-wrap");
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.setAttribute("data-action", "delete-image");
+    deleteBtn.setAttribute("data-doc-id", key);
+    deleteBtn.setAttribute("data-storage-path", resolveStoragePath(item));
+    deleteBtn.setAttribute("aria-label", "מחק תמונה");
+    deleteBtn.textContent = "🗑️";
+
+    mediaWrap.appendChild(img);
+    mediaWrap.appendChild(deleteBtn);
+    article.appendChild(mediaWrap);
+  } else {
+    article.appendChild(img);
+  }
+
   const caption = document.createElement("p");
   caption.textContent = item.caption || "";
 
@@ -181,14 +238,42 @@ function createGalleryItem(key, item) {
   time.dateTime = String(item.timestamp);
   time.textContent = formatGalleryTime(item.timestamp);
 
-  article.appendChild(img);
   if (item.caption) article.appendChild(caption);
   article.appendChild(time);
 
   return article;
 }
 
-let renderedKeys = new Set();
+function getSortedGalleryEntries(snapshot) {
+  if (!snapshot.exists()) return [];
+
+  return Object.entries(snapshot.val())
+    .filter(([, item]) => item?.imageUrl)
+    .sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
+}
+
+function renderGalleryGrid(grid, entries) {
+  grid.innerHTML = "";
+
+  if (!entries.length) {
+    grid.innerHTML = emptyHtmlForGrid(grid);
+    return;
+  }
+
+  [...entries].reverse().forEach(([key, item]) => {
+    const includeDelete = grid.dataset.target === "admin-gallery-grid";
+    grid.appendChild(createGalleryItem(key, item, includeDelete));
+  });
+}
+
+function handleGallerySnapshot(snapshot) {
+  const grids = getGalleryGrids();
+  if (!grids.length) return;
+
+  const entries = getSortedGalleryEntries(snapshot);
+  grids.forEach((grid) => renderGalleryGrid(grid, entries));
+}
+
 let unsubscribe = null;
 let isAdminFn = () => false;
 
@@ -239,29 +324,18 @@ export async function handleUploadLiveImage() {
   }
 }
 
-function handleGallerySnapshot(snapshot) {
-  const grid = queryTarget("gallery-grid");
-  if (!grid) return;
+export async function handleDeleteLiveImage(docId, storagePath) {
+  if (!isAdminFn() || !docId) return;
 
-  if (!snapshot.exists()) {
-    grid.innerHTML =
-      '<p data-target="gallery-empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px;font-size:.85rem">אין עדכונים עדיין</p>';
-    renderedKeys.clear();
-    return;
+  if (storagePath) {
+    try {
+      await deleteObject(storageRef(storage, storagePath));
+    } catch (error) {
+      if (error?.code !== "storage/object-not-found") throw error;
+    }
   }
 
-  const emptyMsg = queryTarget("gallery-empty");
-  if (emptyMsg) emptyMsg.remove();
-
-  const entries = Object.entries(snapshot.val()).sort(
-    (a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0)
-  );
-
-  for (const [key, item] of entries) {
-    if (!item?.imageUrl || renderedKeys.has(key)) continue;
-    renderedKeys.add(key);
-    grid.prepend(createGalleryItem(key, item));
-  }
+  await remove(ref(db, `${LIVE_UPDATES_PATH}/${docId}`));
 }
 
 export function startLiveUpdatesListener() {
@@ -277,13 +351,10 @@ export function stopLiveUpdatesListener() {
     unsubscribe();
     unsubscribe = null;
   }
-  renderedKeys.clear();
 
-  const grid = queryTarget("gallery-grid");
-  if (grid) {
-    grid.innerHTML =
-      '<p data-target="gallery-empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px;font-size:.85rem">אין עדכונים עדיין</p>';
-  }
+  getGalleryGrids().forEach((grid) => {
+    grid.innerHTML = emptyHtmlForGrid(grid);
+  });
 }
 
 /**

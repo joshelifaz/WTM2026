@@ -5,6 +5,7 @@ import {
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
 } from "firebase/storage";
 import {
   getAuth,
@@ -41,6 +42,7 @@ export {
   storageRef,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
   signInWithPopup,
   signOut,
   onAuthStateChanged,
