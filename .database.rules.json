@@ -19,6 +19,10 @@
         ".write": "(auth != null && !data.exists()) || (data.exists() && auth != null && (auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true))",
         ".validate": "!newData.exists() || (newData.hasChildren(['text', 'authorName', 'timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 500 && newData.child('authorName').isString() && newData.child('authorName').val().length > 0 && newData.child('timestamp').isNumber())"
       }
+    },
+    "access_logs": {
+      ".read": "auth != null && auth.uid === 'axbbTldIG9Pg1xfHk5tWrDlPUeJ2'",
+      ".write": "auth != null"
     }
   }
 }
