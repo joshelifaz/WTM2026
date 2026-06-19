@@ -319,13 +319,30 @@
   .live-upload-form .form-group input[type="text"]{width:100%;background:#ffffff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'Inter',sans-serif;font-size:.82rem;text-align:right;}
   .live-upload-actions{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
   .live-upload-status{font-size:.78rem;color:var(--muted);min-height:1.2em;}
-  .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
-  .gallery-grid article{background:#ffffff;border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);}
-  .gallery-grid article img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;}
-  .gallery-grid article p{padding:8px 10px 0;font-size:.78rem;font-weight:600;color:var(--text);line-height:1.4;text-align:right;}
-  .gallery-grid article time{display:block;padding:4px 10px 10px;font-size:.65rem;color:var(--muted);font-family:'Fira Code',monospace;text-align:left;direction:ltr;unicode-bidi:isolate;}
+  .gallery-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+  @media (min-width:640px){
+    .gallery-grid{grid-template-columns:repeat(3,1fr);}
+  }
+  [data-target="admin-gallery-grid"]{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-block-start:16px;}
+  @media (min-width:640px){
+    [data-target="admin-gallery-grid"]{grid-template-columns:repeat(3,1fr);}
+  }
+  .gallery-grid article,
+  [data-target="admin-gallery-grid"] article{background:#ffffff;border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .gallery-grid article img,
+  [data-target="admin-gallery-grid"] article img,
+  [data-target="gallery-media-wrap"] img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;}
+  [data-target="gallery-media-wrap"]{position:relative;}
+  [data-target="admin-gallery-grid"] [data-action="delete-image"]{position:absolute;inset-inline-start:8px;top:8px;z-index:2;display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid #fecaca;border-radius:8px;background:rgba(254,226,226,.95);color:#dc2626;font-size:.95rem;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12);}
+  [data-target="admin-gallery-grid"] [data-action="delete-image"]:hover{background:#fee2e2;border-color:#f87171;}
+  body.dark-mode [data-target="admin-gallery-grid"] [data-action="delete-image"]{background:rgba(127,29,29,.9);border-color:#991b1b;color:#fecaca;}
+  .gallery-grid article p,
+  [data-target="admin-gallery-grid"] article p{padding:8px 10px 0;font-size:.78rem;font-weight:600;color:var(--text);line-height:1.4;text-align:right;}
+  .gallery-grid article time,
+  [data-target="admin-gallery-grid"] article time{display:block;padding:4px 10px 10px;font-size:.65rem;color:var(--muted);font-family:'Fira Code',monospace;text-align:end;direction:ltr;unicode-bidi:isolate;}
   body.dark-mode .live-upload-form,
-  body.dark-mode .gallery-grid article{background:var(--surface);border-color:var(--border);}
+  body.dark-mode .gallery-grid article,
+  body.dark-mode [data-target="admin-gallery-grid"] article{background:var(--surface);border-color:var(--border);}
   body.dark-mode .live-upload-form .form-group input{background:var(--surface);color:var(--text);border-color:var(--border);}
 
   /* VIEWER SHELL & VIEW SECTIONS */
@@ -611,6 +628,11 @@
         <span class="live-upload-status" data-target="upload-status" aria-live="polite"></span>
       </div>
     </form>
+
+    <div class="section-title">אימות העלאות</div>
+    <div data-target="admin-gallery-grid" dir="rtl">
+      <p data-target="admin-gallery-empty" style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px;font-size:.85rem">אין עדכונים עדיין</p>
+    </div>
   </section>
 
   <section data-target="viewer-status-view" class="hidden view-section" dir="rtl">
