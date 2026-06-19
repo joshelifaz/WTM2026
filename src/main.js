@@ -1,6 +1,11 @@
 import "./style.css";
 import { store } from "./store.js";
-import { initLiveUpdates, handleUploadLiveImage } from "./liveUpdates.js";
+import {
+  initLiveUpdates,
+  handleUploadLiveImage,
+  startLiveUpdatesListener,
+  stopLiveUpdatesListener,
+} from "./liveUpdates.js";
 import { GEAR_DATA, LOGISTICS_DATA, ADMIN_PIN } from "./data.js";
 import {
   auth,
@@ -42,6 +47,8 @@ const HEADER_LOGO_DARK = "/logo192T.png";
 let authUser = null;
 let authRole = "viewer";
 let adminsMap = {};
+let unsubscribeAdmins = null;
+let appListenersStarted = false;
 
 function encodeEmail(email) {
   return email.trim().toLowerCase().replace(/\./g, ",");
@@ -102,12 +109,46 @@ function renderAdminEmailList() {
     .join("");
 }
 
-function startAdminsListener() {
-  onValue(ref(db, ADMINS_PATH), (snapshot) => {
-    adminsMap = snapshot.val() || {};
-    renderAdminEmailList();
-    evaluateAuthRole();
-  });
+function stopDatabaseListeners() {
+  if (unsubscribeAdmins) {
+    unsubscribeAdmins();
+    unsubscribeAdmins = null;
+  }
+  store.stopListening();
+  stopLiveUpdatesListener();
+  appListenersStarted = false;
+  adminsMap = {};
+}
+
+function startAppDataListeners() {
+  if (appListenersStarted) return;
+  appListenersStarted = true;
+  store.startListening();
+  startLiveUpdatesListener();
+}
+
+function startDatabaseListeners() {
+  unsubscribeAdmins = onValue(
+    ref(db, ADMINS_PATH),
+    (snapshot) => {
+      adminsMap = snapshot.val() || {};
+      renderAdminEmailList();
+      evaluateAuthRole();
+      startAppDataListeners();
+    },
+    (error) => {
+      console.error("admins listener error:", error);
+    }
+  );
+}
+
+function resetClientRaceState() {
+  return {
+    isEditor: false,
+    mode: "manager",
+    managerTab: "dashboard",
+    editingId: null,
+  };
 }
 
 async function googleSignIn() {
@@ -156,9 +197,8 @@ async function removeAdminEmail(encodedEmail) {
 }
 
 function initAuth() {
-  startAdminsListener();
-
   onAuthStateChanged(auth, (user) => {
+    stopDatabaseListeners();
     authUser = user;
 
     if (user) {
@@ -167,11 +207,12 @@ function initAuth() {
       target("login-screen")?.classList.add("hidden");
       target("main-app")?.classList.remove("hidden");
       applyRoleShell();
+      startDatabaseListeners();
       return;
     }
 
     authRole = "viewer";
-    state.isEditor = false;
+    state = resetClientRaceState();
 
     target("main-app")?.classList.add("hidden");
     target("login-screen")?.classList.remove("hidden");
@@ -1327,8 +1368,22 @@ function showFinishSummary() {
 function updateStateAndRender(remote) {
   const clientFields = {
     mode: state.mode,
+    managerTab: state.managerTab,
     editingId: state.editingId,
   };
+
+  if (!remote) {
+    state = {
+      ...resetClientRaceState(),
+      isEditor: isAdmin(),
+      mode: clientFields.mode,
+      managerTab: clientFields.managerTab,
+      editingId: null,
+    };
+    renderAll();
+    return;
+  }
+
   state = mergeRemoteState(remote);
   state.mode = clientFields.mode;
   state.editingId = clientFields.editingId;

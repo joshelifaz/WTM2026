@@ -1,19 +1,16 @@
 {
   "rules": {
-    "races": {
-      ".read": true,
-      ".write": true
-    },
+    ".read": "auth != null",
+    ".write": false,
     "race": {
-      "live_updates": {
-        ".read": true,
-        ".write": true
-      }
+      ".write": "auth != null && (auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true)"
+    },
+    "races": {
+      ".write": "auth != null && (auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true)"
     },
     "settings": {
       "admins": {
-        ".read": true,
-        ".write": true
+        ".write": "auth != null && auth.token.email == 'joshelifaz@gmail.com'"
       }
     }
   }
