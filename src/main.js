@@ -656,11 +656,39 @@ function lapRowMatches(lapField, lapNum) {
   return lapField.startsWith(`${lapStr}+`) || lapField.endsWith(`+${lapStr}`);
 }
 
-function findScheduleRowForLap(lapNum) {
+function getRowMaxLap(lapField) {
+  const parts = String(lapField ?? "")
+    .split("+")
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((n) => !Number.isNaN(n));
+  return parts.length ? Math.max(...parts) : 0;
+}
+
+function getActiveLapScheduleRow(lapNum) {
+  if (lapNum == null || lapNum < 1) return null;
   const schedule = getSchedule();
   const matches = schedule.filter((row) => lapRowMatches(row.lap, lapNum));
   if (matches.length) return matches[0];
   return schedule.find((row) => String(row.lap).includes(String(lapNum))) || null;
+}
+
+function getScheduleFocusLapNum() {
+  if (!state?.raceStarted || !state?.currentLapNum) return null;
+  const inPit = state.currentLapEnd !== null;
+  return inPit ? state.currentLapNum + 1 : state.currentLapNum;
+}
+
+function getPrepFocusLapNum() {
+  return getScheduleFocusLapNum();
+}
+
+function isScheduleRowCompleted(row, focusLap) {
+  if (!focusLap) return false;
+  return getRowMaxLap(row.lap) < focusLap;
+}
+
+function findScheduleRowForLap(lapNum) {
+  return getActiveLapScheduleRow(lapNum);
 }
 
 function buildTimelineSegments(now = Date.now()) {
@@ -747,10 +775,10 @@ function updateCurrentLapCard() {
     return;
   }
 
-  const managerLap = state.currentLapNum;
-  const cur = findScheduleRowForLap(managerLap);
+  const prepLap = getPrepFocusLapNum();
+  const cur = getActiveLapScheduleRow(prepLap);
 
-  badge.textContent = `סיבוב ${managerLap}`;
+  badge.textContent = prepLap ? `סיבוב ${prepLap}` : "סיבוב —";
   foodEl.textContent = cur?.food || "—";
   drinkEl.textContent = cur?.drink || "—";
   suppsEl.textContent = cur?.supps || "—";
@@ -763,7 +791,7 @@ function updateCurrentLapCard() {
     noteEl.style.display = "none";
   }
 
-  const nextRow = findScheduleRowForLap(managerLap + 1);
+  const nextRow = prepLap ? getActiveLapScheduleRow(prepLap + 1) : null;
   if (nextRow) {
     target("next-lap-number").textContent = nextRow.lap;
     const parts = [nextRow.food, nextRow.drink, nextRow.supps].filter(Boolean).join(" · ");
@@ -1222,35 +1250,21 @@ function initKebabMenu() {
 // ══════════════════════════════════════════════════════
 // SCHEDULE
 // ══════════════════════════════════════════════════════
-function getCurrentScheduleRow() {
-  if (!state?.raceStarted) return -1;
-  const now = new Date();
-  const nowM = now.getHours() * 60 + now.getMinutes();
-  let best = 0;
-  getSchedule().forEach((r, i) => {
-    const [h, m] = r.planned.split(":").map(Number);
-    if (h * 60 + m <= nowM) best = i;
-  });
-  return best;
-}
-
 function renderSchedule() {
   const tbody = target("schedule-body");
   if (!tbody || !state?.settings) return;
 
   const targetLaps = state?.settings?.targetLaps ?? 10;
   const lapDist = state?.settings?.lapDist ?? 8;
-  const clockIdx = getCurrentScheduleRow();
+  const focusLap = getScheduleFocusLapNum();
+  const activeRow = focusLap ? getActiveLapScheduleRow(focusLap) : null;
   const schedule = getSchedule();
 
   tbody.innerHTML = schedule
-    .map((row, i) => {
-      const cls =
-        i === clockIdx && state?.raceStarted
-          ? "current-row"
-          : i < clockIdx && state?.raceStarted
-            ? "completed-row"
-            : "";
+    .map((row) => {
+      const isActive = state?.raceStarted && activeRow && row.id === activeRow.id;
+      const isCompleted = state?.raceStarted && !isActive && isScheduleRowCompleted(row, focusLap);
+      const cls = isActive ? "current-row" : isCompleted ? "completed-row" : "";
       const editBtn = isAdmin()
         ? `<button type="button" class="edit-btn" data-action="edit-row" data-row-id="${row.id}">✏️</button>`
         : "";
