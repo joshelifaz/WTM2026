@@ -283,6 +283,7 @@ let state = {
   mode: "manager",
   managerTab: "dashboard",
   editingId: null,
+  scheduleEditorIsNew: false,
 };
 
 function applyRoleUI() {
@@ -294,7 +295,9 @@ function applyRoleUI() {
 
   if (!admin) {
     target("editor-panel")?.classList.remove("open");
+    closeEditor();
     state.editingId = null;
+    state.scheduleEditorIsNew = false;
   }
 
   renderMenu();
@@ -1244,6 +1247,9 @@ function initKebabMenu() {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeKebabMenu();
+    if (e.key === "Escape" && target("schedule-editor-modal")?.classList.contains("open")) {
+      closeEditor();
+    }
   });
 }
 
@@ -1451,44 +1457,103 @@ function toggleLogistics(i) {
 // ══════════════════════════════════════════════════════
 // EDITOR
 // ══════════════════════════════════════════════════════
+function getScheduleEditorFields() {
+  return {
+    lap: target("edit-lap")?.value?.trim() ?? "",
+    food: target("edit-food")?.value?.trim() ?? "",
+    drink: target("edit-drink")?.value?.trim() ?? "",
+    supps: target("edit-supps")?.value?.trim() ?? "",
+  };
+}
+
+function setScheduleEditorFields(row = {}) {
+  const lapInput = target("edit-lap");
+  const foodInput = target("edit-food");
+  const drinkInput = target("edit-drink");
+  const suppsInput = target("edit-supps");
+  if (lapInput) lapInput.value = row.lap ?? "";
+  if (foodInput) foodInput.value = row.food ?? "";
+  if (drinkInput) drinkInput.value = row.drink ?? "";
+  if (suppsInput) suppsInput.value = row.supps ?? "";
+}
+
+function updateScheduleEditorChrome() {
+  const isNew = state.scheduleEditorIsNew;
+  const title = target("schedule-editor-title");
+  const deleteBtn = target("delete-schedule-row-btn");
+  if (title) title.textContent = isNew ? "➕ שורה חדשה" : "✏️ עריכת שורה";
+  deleteBtn?.classList.toggle("hidden", isNew || !state.editingId);
+}
+
+function openScheduleEditorModal() {
+  const modal = target("schedule-editor-modal");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  updateScheduleEditorChrome();
+}
+
 function openEditor(id) {
   if (!isAdmin()) return;
   const row = getSchedule().find((r) => r.id === id);
   if (!row) return;
   state.editingId = id;
-  target("edit-planned-time").value = row.planned;
-  target("edit-actual-time").value = row.actualTime || "";
-  target("edit-food").value = row.food || "";
-  target("edit-drink").value = row.drink || "";
-  target("edit-supps").value = row.supps || "";
-  target("edit-gear-field").value = row.gear || "";
-  target("edit-clothing").value = row.clothing || "";
-  target("edit-notes").value = row.notes || "";
-  const panel = target("editor-panel");
-  panel.classList.add("open");
-  panel.scrollIntoView({ behavior: "smooth" });
+  state.scheduleEditorIsNew = false;
+  setScheduleEditorFields(row);
+  openScheduleEditorModal();
+}
+
+function openNewScheduleRow() {
+  if (!isAdmin()) return;
+  const focusLap = getScheduleFocusLapNum() || state.currentLapNum || 1;
+  state.editingId = null;
+  state.scheduleEditorIsNew = true;
+  setScheduleEditorFields({ lap: String(focusLap) });
+  openScheduleEditorModal();
 }
 
 function closeEditor() {
   state.editingId = null;
-  target("editor-panel").classList.remove("open");
+  state.scheduleEditorIsNew = false;
+  const modal = target("schedule-editor-modal");
+  if (modal) {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  }
 }
 
-function saveEdit() {
+async function saveEdit() {
   if (!isAdmin()) return;
-  const editingId = state.editingId;
-  if (!editingId) return;
-  store.saveEdit(editingId, {
-    planned: target("edit-planned-time").value,
-    actualTime: target("edit-actual-time").value,
-    food: target("edit-food").value,
-    drink: target("edit-drink").value,
-    supps: target("edit-supps").value,
-    gear: target("edit-gear-field").value,
-    clothing: target("edit-clothing").value,
-    notes: target("edit-notes").value,
-  });
-  closeEditor();
+  const fields = getScheduleEditorFields();
+  if (!fields.lap) {
+    alert("נא להזין מספר סיבוב");
+    return;
+  }
+
+  try {
+    if (state.scheduleEditorIsNew) {
+      await store.addScheduleRow(fields);
+    } else if (state.editingId) {
+      await store.saveEdit(state.editingId, fields);
+    }
+    closeEditor();
+  } catch (error) {
+    console.error("save schedule row failed:", error);
+    alert("שגיאה בשמירת השורה");
+  }
+}
+
+async function deleteScheduleRow() {
+  if (!isAdmin() || state.scheduleEditorIsNew || !state.editingId) return;
+  if (!confirm("האם למחוק שורה זו מהלוח?")) return;
+
+  try {
+    await store.deleteScheduleRow(state.editingId);
+    closeEditor();
+  } catch (error) {
+    console.error("delete schedule row failed:", error);
+    alert("שגיאה במחיקת השורה");
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1784,7 +1849,13 @@ function initActionDelegation() {
         closeEditor();
         break;
       case "save-edit":
-        saveEdit();
+        void saveEdit();
+        break;
+      case "add-schedule-row":
+        openNewScheduleRow();
+        break;
+      case "delete-schedule-row":
+        void deleteScheduleRow();
         break;
       case "save-settings":
         saveSettings();
@@ -1857,8 +1928,10 @@ function exposeUiGlobals() {
   window.toggleGear = toggleGear;
   window.toggleLogistics = toggleLogistics;
   window.openEditor = openEditor;
+  window.openNewScheduleRow = openNewScheduleRow;
   window.closeEditor = closeEditor;
   window.saveEdit = saveEdit;
+  window.deleteScheduleRow = deleteScheduleRow;
   window.saveSettings = saveSettings;
   window.exportData = exportData;
   window.clearData = clearData;

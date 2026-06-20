@@ -157,8 +157,21 @@
   .edit-btn.locked{opacity:.3;cursor:not-allowed;}
 
   /* EDITOR */
-  #editor-panel{display:none;background:#fffbeb;border:2px solid var(--rust);border-radius:10px;padding:16px;margin-bottom:16px;}
-  #editor-panel.open{display:block;}
+  .schedule-editor-modal{display:none;position:fixed;inset:0;z-index:9997;align-items:center;justify-content:center;padding:16px;}
+  .schedule-editor-modal.open{display:flex;}
+  .schedule-editor-backdrop{position:absolute;inset:0;background:rgba(30,45,72,.75);backdrop-filter:blur(4px);}
+  .schedule-editor-dialog{position:relative;width:100%;max-width:420px;background:#fffbeb;border:2px solid var(--rust);border-radius:12px;padding:16px 18px;box-shadow:0 16px 40px rgba(0,0,0,.2);direction:rtl;text-align:right;}
+  .schedule-editor-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-direction:row-reverse;}
+  .schedule-editor-header .editor-title{margin:0;font-size:.9rem;font-weight:700;color:var(--accent);font-family:'Inter',sans-serif;}
+  .schedule-editor-close{background:none;border:none;color:var(--muted);font-size:1.4rem;line-height:1;cursor:pointer;padding:0 4px;}
+  .schedule-editor-close:hover{color:var(--text);}
+  .schedule-editor-form{grid-template-columns:1fr 1fr;gap:10px;}
+  .schedule-table-actions{display:flex;justify-content:flex-start;padding:10px 0 4px;}
+  .schedule-add-btn{font-size:.82rem;padding:8px 14px;}
+  .btn-delete-schedule{margin-inline-end:auto;background:transparent;color:#dc2626;border:1px solid #fecaca;padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;font-size:.82rem;}
+  .btn-delete-schedule:hover{background:#fef2f2;border-color:#f87171;}
+  .btn-delete-schedule.hidden{display:none;}
+  body.view-only .schedule-add-btn{display:none;}
   .editor-title{font-size:.9rem;font-weight:700;color:var(--accent);margin-bottom:14px;font-family:'Inter',sans-serif;}
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .form-group{display:flex;flex-direction:column;gap:4px;}
@@ -260,6 +273,7 @@
   body.view-only .action-btn,
   body.view-only .edit-btn,
   body.view-only .editor-panel,
+  body.view-only .schedule-editor-modal,
   body.view-only .settings-admin-only { display: none !important; }
   body.view-only #action-area { display: none; }
   body.view-only .gear-item { cursor: default; pointer-events: none; }
@@ -339,6 +353,9 @@
   body.dark-mode .lap-log-header{background:#141c2b;}
   body.dark-mode .next-lap-strip{background:#141c2b;}
   body.dark-mode #editor-panel{background:#1a2332;}
+  body.dark-mode .schedule-editor-dialog{background:#1a2332;border-color:var(--rust);}
+  body.dark-mode .btn-delete-schedule{color:#fecaca;border-color:#991b1b;}
+  body.dark-mode .btn-delete-schedule:hover{background:rgba(127,29,29,.4);}
   body.dark-mode .form-group input,
   body.dark-mode .form-group textarea{background:var(--surface);color:var(--text);border-color:var(--border);}
   body.dark-mode .scroll-hint{background:#141c2b;}
@@ -618,24 +635,6 @@
         <div id="pace-status-text" class="pace-status-text" data-target="pace-status-text">טרם התחיל</div>
       </div>
 
-      <div id="editor-panel" class="editor-panel" data-target="editor-panel">
-      <div class="editor-title">✏️ עריכת שורה</div>
-      <div class="form-grid">
-        <div class="form-group"><label>שעה מתוכננת</label><input type="text" id="edit-time" data-target="edit-planned-time" placeholder="12:00"></div>
-        <div class="form-group"><label>שעה בפועל</label><input type="text" id="edit-actual" data-target="edit-actual-time" placeholder="12:15"></div>
-        <div class="form-group"><label>אוכל</label><input type="text" id="edit-food" data-target="edit-food"></div>
-        <div class="form-group"><label>שתייה</label><input type="text" id="edit-drink" data-target="edit-drink"></div>
-        <div class="form-group"><label>תוספים</label><input type="text" id="edit-supps" data-target="edit-supps"></div>
-        <div class="form-group"><label>ציוד נדרש</label><input type="text" id="edit-gear" data-target="edit-gear-field"></div>
-        <div class="form-group"><label>ביגוד</label><input type="text" id="edit-clothing" data-target="edit-clothing"></div>
-        <div class="form-group full"><label>הערות מנהל</label><textarea id="edit-notes" data-target="edit-notes"></textarea></div>
-      </div>
-      <div class="editor-actions">
-        <button type="button" class="btn-cancel" data-action="close-editor">ביטול</button>
-        <button type="button" class="btn-save" data-action="save-edit">💾 שמור</button>
-      </div>
-    </div>
-
     <div id="current-lap-card" class="current-card" data-target="current-lap-card">
       <div class="card-header">
         <div class="card-title">עכשיו — מה להכין</div>
@@ -712,6 +711,9 @@
         </tr></thead>
         <tbody id="schedule-body" data-target="schedule-body"></tbody>
       </table>
+    </div>
+    <div class="schedule-table-actions" dir="rtl">
+      <button type="button" class="btn-save schedule-add-btn" data-action="add-schedule-row">➕ הוסף שורה חדשה</button>
     </div>
     <div class="scroll-hint">← גלול לפרטים נוספים</div>
 
@@ -888,6 +890,28 @@
         <b style="color:var(--light)">ניתן לדלג</b> על סיים סיבוב — ללחוץ ישר על התחל הבא<br><br>
         כל הנתונים מסונכרנים בזמן אמת עם Firebase.
       </p>
+    </div>
+  </div>
+</div>
+
+<!-- SCHEDULE EDITOR MODAL -->
+<div id="schedule-editor-modal" class="schedule-editor-modal" data-target="schedule-editor-modal" dir="rtl" aria-hidden="true">
+  <div class="schedule-editor-backdrop" data-action="close-editor" aria-hidden="true"></div>
+  <div class="schedule-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-editor-title">
+    <div class="schedule-editor-header">
+      <h2 id="schedule-editor-title" class="editor-title" data-target="schedule-editor-title">✏️ עריכת שורה</h2>
+      <button type="button" class="schedule-editor-close" data-action="close-editor" aria-label="סגור">×</button>
+    </div>
+    <div class="form-grid schedule-editor-form">
+      <div class="form-group"><label for="edit-lap">סיבוב</label><input type="text" id="edit-lap" data-target="edit-lap" placeholder="1 או 1+2" dir="ltr"></div>
+      <div class="form-group"><label for="edit-food">אוכל</label><input type="text" id="edit-food" data-target="edit-food" dir="rtl"></div>
+      <div class="form-group"><label for="edit-drink">שתייה</label><input type="text" id="edit-drink" data-target="edit-drink" dir="rtl"></div>
+      <div class="form-group"><label for="edit-supps">תוספים</label><input type="text" id="edit-supps" data-target="edit-supps" dir="rtl"></div>
+    </div>
+    <div class="editor-actions" dir="rtl">
+      <button type="button" class="btn-delete-schedule hidden" data-target="delete-schedule-row-btn" data-action="delete-schedule-row">🗑️ מחק שורה</button>
+      <button type="button" class="btn-cancel" data-action="close-editor">ביטול</button>
+      <button type="button" class="btn-save" data-action="save-edit">💾 שמור</button>
     </div>
   </div>
 </div>

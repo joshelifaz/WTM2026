@@ -217,8 +217,40 @@ async function toggleLogistics(index) {
 
 async function saveEdit(id, patch) {
   const schedule = toArray(remoteState.schedule).map((row) =>
-    row.id === id ? { ...row, ...patch } : row
+    row.id === id
+      ? {
+          ...row,
+          lap: patch.lap ?? row.lap,
+          food: patch.food ?? row.food ?? "",
+          drink: patch.drink ?? row.drink ?? "",
+          supps: patch.supps ?? row.supps ?? "",
+        }
+      : row
   );
+  await update(raceRef, { schedule, updatedAt: Date.now() });
+}
+
+async function addScheduleRow(newRowData) {
+  const schedule = toArray(remoteState.schedule);
+  const maxId = schedule.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0);
+  const newRow = {
+    id: maxId + 1,
+    lap: String(newRowData.lap ?? "1").trim(),
+    food: newRowData.food ?? "",
+    drink: newRowData.drink ?? "",
+    supps: newRowData.supps ?? "",
+    planned: "",
+    day: "",
+    gear: "",
+    clothing: "",
+    notes: "",
+  };
+  await update(raceRef, { schedule: [...schedule, newRow], updatedAt: Date.now() });
+  return newRow.id;
+}
+
+async function deleteScheduleRow(rowId) {
+  const schedule = toArray(remoteState.schedule).filter((row) => row.id !== rowId);
   await update(raceRef, { schedule, updatedAt: Date.now() });
 }
 
@@ -276,6 +308,8 @@ export const store = {
   toggleGear,
   toggleLogistics,
   saveEdit,
+  addScheduleRow,
+  deleteScheduleRow,
   saveSettings,
   finishRace,
   clearData,
