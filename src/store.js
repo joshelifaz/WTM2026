@@ -1,7 +1,8 @@
 import { db, ref, onValue, set, update } from "./firebase.js";
 import { SCHEDULE_DATA, ENVIRONMENT_TRIGGERS } from "./data.js";
+import { OfflineSyncManager } from "./offlineSync.js";
 
-const RACE_PATH = "races/wtm2026";
+export const RACE_PATH = "races/wtm2026";
 const raceRef = ref(db, RACE_PATH);
 
 function toArray(value) {
@@ -110,7 +111,7 @@ function createDefaultState() {
   };
 }
 
-let remoteState = null;
+let remoteState = OfflineSyncManager.loadSnapshot() || null;
 const listeners = new Set();
 let unsubscribeDb = null;
 
@@ -149,7 +150,17 @@ function startListening() {
 
   unsubscribeDb = onValue(
     raceRef,
-    (snapshot) => {
+    async (snapshot) => {
+      if (OfflineSyncManager.getPendingCount() > 0) {
+        if (navigator.onLine) {
+          await OfflineSyncManager.processQueue();
+        }
+        if (OfflineSyncManager.getPendingCount() > 0) {
+          notify();
+          return;
+        }
+      }
+
       if (snapshot.exists()) {
         const val = snapshot.val();
         if (!val.triggers) {
@@ -162,6 +173,9 @@ function startListening() {
       } else {
         remoteState = createDefaultState();
         set(raceRef, remoteState);
+      }
+      if (snapshot.exists()) {
+        OfflineSyncManager.saveSnapshot(remoteState);
       }
       notify();
     },
@@ -197,14 +211,22 @@ async function btnStartClick() {
   const lapLog = normalizeLapLog(remoteState.lapLog);
 
   if (!remoteState.raceStarted) {
-    await update(raceRef, {
+    const updates = {
       raceStarted: true,
       currentLapNum: 1,
       currentLapStart: now,
       currentLapEnd: null,
       breakStart: null,
       updatedAt: now,
-    });
+    };
+    if (navigator.onLine) {
+      await update(raceRef, updates);
+    } else {
+      OfflineSyncManager.enqueueAction(updates);
+      remoteState = { ...remoteState, ...updates };
+      OfflineSyncManager.saveSnapshot(remoteState);
+      notify();
+    }
     return;
   }
 
@@ -220,14 +242,23 @@ async function btnStartClick() {
     lapLog.push({ lapNum: prevLapNum, lapStart, lapEnd, breakEnd });
   }
 
-  await update(raceRef, {
+  const updates = {
     lapLog,
     currentLapNum: prevLapNum + 1,
     currentLapStart: breakEnd,
     currentLapEnd: null,
     breakStart: null,
     updatedAt: now,
-  });
+  };
+
+  if (navigator.onLine) {
+    await update(raceRef, updates);
+  } else {
+    OfflineSyncManager.enqueueAction(updates);
+    remoteState = { ...remoteState, ...updates };
+    OfflineSyncManager.saveSnapshot(remoteState);
+    notify();
+  }
 }
 
 async function btnFinishClick() {

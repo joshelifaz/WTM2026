@@ -23,6 +23,7 @@ import {
   stopAccessLogsListener,
 } from "./accessLogs.js";
 import { ADMIN_PIN } from "./data.js";
+import { OfflineSyncManager } from "./offlineSync.js";
 import {
   auth,
   db,
@@ -414,6 +415,19 @@ function updateConnectionStatus() {
   const online = navigator.onLine;
   el.textContent = online ? "🟢 Online" : "🔴 Offline";
   el.classList.toggle("offline", !online);
+}
+
+function updateOfflineUI() {
+  const banner = document.getElementById("offline-status-banner");
+  if (!banner) return;
+
+  if (!navigator.onLine) {
+    banner.textContent = "מצב לא מקוון - ממתין לסינכרון...";
+    banner.classList.remove("hidden");
+  } else {
+    banner.textContent = "";
+    banner.classList.add("hidden");
+  }
 }
 
 function updateHeaderLogo() {
@@ -2187,10 +2201,30 @@ function initApp() {
   initKebabMenu();
   initAuth();
   updateConnectionStatus();
+  updateOfflineUI();
   updateSettingsNavButton();
 
-  window.addEventListener("online", updateConnectionStatus);
-  window.addEventListener("offline", updateConnectionStatus);
+  window.addEventListener("online", async () => {
+    await OfflineSyncManager.processQueue();
+    updateOfflineUI();
+    updateConnectionStatus();
+  });
+  window.addEventListener("offline", () => {
+    updateOfflineUI();
+    updateConnectionStatus();
+  });
+  window.addEventListener("beforeunload", (e) => {
+    if (OfflineSyncManager.getPendingCount() > 0) {
+      e.preventDefault();
+      e.returnValue = "יש נתונים שלא נשמרו בשרת!";
+    }
+  });
+
+  if (navigator.onLine) {
+    OfflineSyncManager.processQueue().then(() => {
+      updateOfflineUI();
+    });
+  }
 
   initLiveUpdates({ isAdmin });
   initCheers({
