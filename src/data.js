@@ -69,3 +69,10 @@ export const LOGISTICS_DATA = [
 ];
 
 export const ADMIN_PIN = "2626";
+
+export const ENVIRONMENT_TRIGGERS = [
+  { id: "sunset", time: "19:30", title: "☀️ שקיעה מתקרבת", text: "חובה להכין: פנס ראש + סוללות גיבוי ומעיל רוח." },
+  { id: "dinner", time: "21:00", title: "🍲 ארוחת ערב", text: "זמן למנה חמה מרוכזת / פירה חם בפיטס." },
+  { id: "midnight", time: "00:00", title: "🌙 חצות הליל", text: "הטמפרטורה צונחת. לבדוק אם צריך להחליף לביגוד תרמי ארוך." },
+  { id: "sunrise", time: "05:30", title: "🌅 זריחה", text: "להכין: משקפי שמש, לרענן קרם הגנה, ולהוריד פנסי ראש." },
+];

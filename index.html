@@ -186,7 +186,8 @@
   .btn-delete-schedule{margin-inline-end:auto;background:transparent;color:#dc2626;border:1px solid #fecaca;padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;font-size:.82rem;}
   .btn-delete-schedule:hover{background:#fef2f2;border-color:#f87171;}
   .btn-delete-schedule.hidden{display:none;}
-  body.view-only .schedule-add-btn{display:none;}
+  body.view-only .schedule-add-btn,
+  body.view-only .triggers-add-bar { display: none !important; }
   .editor-title{font-size:.9rem;font-weight:700;color:var(--accent);margin-bottom:14px;font-family:'Inter',sans-serif;}
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .form-group{display:flex;flex-direction:column;gap:4px;}
@@ -290,6 +291,7 @@
   body.view-only .schedule-card__edit,
   body.view-only .editor-panel,
   body.view-only .schedule-editor-modal,
+  body.view-only .trigger-editor-modal,
   body.view-only .settings-admin-only { display: none !important; }
   body.view-only #action-area { display: none; }
   body.view-only .gear-item { cursor: default; pointer-events: none; }
@@ -618,7 +620,7 @@
 <nav id="content-tab-bar" class="content-tab-bar" data-target="content-tab-bar" aria-label="Content sections">
   <button type="button" class="content-tab active" data-action="switch-tab" data-tab="dashboard">לוח</button>
   <button type="button" class="content-tab" data-action="switch-tab" data-tab="log">יומן</button>
-  <button type="button" class="content-tab" data-action="switch-tab" data-tab="gear">ציוד</button>
+  <button type="button" class="content-tab" data-action="switch-tab" data-tab="alerts">🔔 התרעות</button>
 </nav>
 
 <nav data-target="viewer-tabs" class="tabs hidden" dir="rtl" aria-label="תצוגת צופה">
@@ -654,6 +656,8 @@
         <div class="pace-status-title">סטטוס קצב</div>
         <div id="pace-status-text" class="pace-status-text" data-target="pace-status-text">טרם התחיל</div>
       </div>
+
+    <div id="environment-alerts-container" class="hidden" dir="rtl"></div>
 
     <div id="current-lap-card" class="current-card" data-target="current-lap-card">
       <div class="card-header">
@@ -740,13 +744,17 @@
     </div>
     </div>
 
-    <!-- Gear: checklist -->
-    <div data-target="view-gear" class="content-view hidden">
-    <div id="manager-panel-gear" class="manager-panel" data-target="manager-panel" data-panel="gear">
-    <div class="section-title">ציוד אישי</div>
-    <div class="gear-grid" id="gear-grid" data-target="gear-grid"></div>
-    <div class="section-title">לוגיסטיקה קבוצתית</div>
-    <div class="gear-grid" id="logistics-grid" data-target="logistics-grid"></div>
+    <!-- Alerts: time-trigger CRUD -->
+    <div data-target="view-alerts" class="content-view hidden alerts-view" dir="rtl">
+    <div id="manager-panel-alerts" class="manager-panel alerts-panel" data-target="manager-panel" data-panel="alerts">
+      <div class="section-title">⏰ התרעות סביבה לפי שעה</div>
+      <p class="triggers-help">התרעות יוצגו אוטומטית בלוח הראשי בשעה שהוגדרה (חלון של 90 דקות).</p>
+
+      <div id="triggers-list" class="triggers-list" data-target="triggers-list"></div>
+
+      <div class="triggers-add-bar" data-target="triggers-add-bar">
+        <button type="button" class="triggers-add-fab" data-action="open-new-trigger">➕ הוסף התרעה חדשה</button>
+      </div>
     </div>
     </div>
 
@@ -926,6 +934,35 @@
       <button type="button" class="btn-cancel" data-action="close-editor">ביטול</button>
       <button type="button" class="btn-save" data-action="save-edit">💾 שמור</button>
     </div>
+  </div>
+</div>
+
+<!-- TRIGGER EDITOR MODAL -->
+<div id="trigger-editor-modal" class="schedule-editor-modal trigger-editor-modal" data-target="trigger-editor-modal" dir="rtl" aria-hidden="true">
+  <div class="schedule-editor-backdrop" data-action="close-trigger-editor" aria-hidden="true"></div>
+  <div class="schedule-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="trigger-editor-title">
+    <div class="schedule-editor-header">
+      <h2 id="trigger-editor-title" class="editor-title" data-target="trigger-editor-title">➕ התרעה חדשה</h2>
+      <button type="button" class="schedule-editor-close" data-action="close-trigger-editor" aria-label="סגור">×</button>
+    </div>
+    <form class="trigger-editor-form" data-target="trigger-editor-form">
+      <div class="form-group full">
+        <label for="trigger-editor-time">שעה (HH:MM)</label>
+        <input type="time" id="trigger-editor-time" data-target="trigger-editor-time" dir="ltr" required>
+      </div>
+      <div class="form-group full">
+        <label for="trigger-editor-title-input">כותרת</label>
+        <input type="text" id="trigger-editor-title-input" data-target="trigger-editor-title-input" placeholder="לדוגמה: ☀️ שקיעה מתקרבת" required>
+      </div>
+      <div class="form-group full">
+        <label for="trigger-editor-text">טקסט</label>
+        <textarea id="trigger-editor-text" data-target="trigger-editor-text" placeholder="הוראות להכנה..." rows="3"></textarea>
+      </div>
+      <div class="editor-actions" dir="rtl">
+        <button type="button" class="btn-cancel" data-action="close-trigger-editor">ביטול</button>
+        <button type="submit" class="btn-save">💾 שמור</button>
+      </div>
+    </form>
   </div>
 </div>
 
