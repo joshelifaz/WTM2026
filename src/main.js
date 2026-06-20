@@ -178,7 +178,6 @@ function startDatabaseListeners() {
       adminsMap = snapshot.val() || {};
       renderAdminEmailList();
       evaluateAuthRole();
-      startAppDataListeners();
     },
     (error) => {
       console.error("admins listener error:", error);
@@ -255,6 +254,7 @@ function initAuth() {
       target("login-screen")?.classList.add("hidden");
       target("main-app")?.classList.remove("hidden");
       applyRoleShell();
+      startAppDataListeners();
       startDatabaseListeners();
       return;
     }
