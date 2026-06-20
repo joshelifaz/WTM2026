@@ -1,22 +1,26 @@
 {
   "rules": {
-    ".read": "auth != null",
+    ".read": false,
     ".write": false,
     "race": {
-      ".write": "auth != null && (auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true)"
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.uid === 'axbbTldIG9Pg1xfHk5tWrDlPUeJ2' || auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true)"
     },
     "races": {
-      ".write": "auth != null && (auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true)"
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.uid === 'axbbTldIG9Pg1xfHk5tWrDlPUeJ2' || auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true)"
     },
     "settings": {
+      ".read": false,
       "admins": {
-        ".write": "auth != null && auth.token.email == 'joshelifaz@gmail.com'"
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === 'axbbTldIG9Pg1xfHk5tWrDlPUeJ2' || auth.token.email == 'joshelifaz@gmail.com')"
       }
     },
     "cheers": {
       ".read": "auth != null",
       "$cheerId": {
-        ".write": "(auth != null && !data.exists()) || (data.exists() && auth != null && (auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true))",
+        ".write": "(auth != null && !data.exists()) || (data.exists() && auth != null && (auth.uid === 'axbbTldIG9Pg1xfHk5tWrDlPUeJ2' || auth.token.email == 'joshelifaz@gmail.com' || root.child('settings/admins').child(auth.token.email.replace('.', ',')).val() == true))",
         ".validate": "!newData.exists() || (newData.hasChildren(['text', 'authorName', 'timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 500 && newData.child('authorName').isString() && newData.child('authorName').val().length > 0 && newData.child('timestamp').isNumber())"
       }
     },

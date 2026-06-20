@@ -6,6 +6,8 @@ import {
   handleDeleteLiveImage,
   startLiveUpdatesListener,
   stopLiveUpdatesListener,
+  closeLightbox,
+  downloadLightboxImage,
 } from "./liveUpdates.js";
 import {
   initCheers,
@@ -2173,6 +2175,12 @@ function initActionDelegation() {
       case "close-finish-modal":
         closeFinishModal();
         break;
+      case "close-lightbox":
+        closeLightbox();
+        break;
+      case "download-lightbox-image":
+        downloadLightboxImage();
+        break;
       case "edit-row":
         openEditor(Number(el.dataset.rowId));
         break;
@@ -2259,6 +2267,8 @@ function exposeUiGlobals() {
   window.finishKey = finishKey;
   window.finishDel = finishDel;
   window.toggleDarkMode = toggleDarkMode;
+  window.closeLightbox = closeLightbox;
+  window.downloadLightboxImage = downloadLightboxImage;
 }
 
 exposeUiGlobals();
