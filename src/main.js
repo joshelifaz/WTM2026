@@ -283,6 +283,7 @@ let state = {
   mode: "manager",
   managerTab: "dashboard",
   editingId: null,
+  scheduleEditorIsNew: false,
 };
 
 function applyRoleUI() {
@@ -294,7 +295,9 @@ function applyRoleUI() {
 
   if (!admin) {
     target("editor-panel")?.classList.remove("open");
+    closeEditor();
     state.editingId = null;
+    state.scheduleEditorIsNew = false;
   }
 
   renderMenu();
@@ -656,11 +659,39 @@ function lapRowMatches(lapField, lapNum) {
   return lapField.startsWith(`${lapStr}+`) || lapField.endsWith(`+${lapStr}`);
 }
 
-function findScheduleRowForLap(lapNum) {
+function getRowMaxLap(lapField) {
+  const parts = String(lapField ?? "")
+    .split("+")
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((n) => !Number.isNaN(n));
+  return parts.length ? Math.max(...parts) : 0;
+}
+
+function getActiveLapScheduleRow(lapNum) {
+  if (lapNum == null || lapNum < 1) return null;
   const schedule = getSchedule();
   const matches = schedule.filter((row) => lapRowMatches(row.lap, lapNum));
   if (matches.length) return matches[0];
   return schedule.find((row) => String(row.lap).includes(String(lapNum))) || null;
+}
+
+function getScheduleFocusLapNum() {
+  if (!state?.raceStarted || !state?.currentLapNum) return null;
+  const inPit = state.currentLapEnd !== null;
+  return inPit ? state.currentLapNum + 1 : state.currentLapNum;
+}
+
+function getPrepFocusLapNum() {
+  return getScheduleFocusLapNum();
+}
+
+function isScheduleRowCompleted(row, focusLap) {
+  if (!focusLap) return false;
+  return getRowMaxLap(row.lap) < focusLap;
+}
+
+function findScheduleRowForLap(lapNum) {
+  return getActiveLapScheduleRow(lapNum);
 }
 
 function buildTimelineSegments(now = Date.now()) {
@@ -747,10 +778,10 @@ function updateCurrentLapCard() {
     return;
   }
 
-  const managerLap = state.currentLapNum;
-  const cur = findScheduleRowForLap(managerLap);
+  const prepLap = getPrepFocusLapNum();
+  const cur = getActiveLapScheduleRow(prepLap);
 
-  badge.textContent = `סיבוב ${managerLap}`;
+  badge.textContent = prepLap ? `סיבוב ${prepLap}` : "סיבוב —";
   foodEl.textContent = cur?.food || "—";
   drinkEl.textContent = cur?.drink || "—";
   suppsEl.textContent = cur?.supps || "—";
@@ -763,7 +794,7 @@ function updateCurrentLapCard() {
     noteEl.style.display = "none";
   }
 
-  const nextRow = findScheduleRowForLap(managerLap + 1);
+  const nextRow = prepLap ? getActiveLapScheduleRow(prepLap + 1) : null;
   if (nextRow) {
     target("next-lap-number").textContent = nextRow.lap;
     const parts = [nextRow.food, nextRow.drink, nextRow.supps].filter(Boolean).join(" · ");
@@ -1216,56 +1247,80 @@ function initKebabMenu() {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeKebabMenu();
+    if (e.key === "Escape" && target("schedule-editor-modal")?.classList.contains("open")) {
+      closeEditor();
+    }
   });
 }
 
 // ══════════════════════════════════════════════════════
 // SCHEDULE
 // ══════════════════════════════════════════════════════
-function getCurrentScheduleRow() {
-  if (!state?.raceStarted) return -1;
-  const now = new Date();
-  const nowM = now.getHours() * 60 + now.getMinutes();
-  let best = 0;
-  getSchedule().forEach((r, i) => {
-    const [h, m] = r.planned.split(":").map(Number);
-    if (h * 60 + m <= nowM) best = i;
+function escapeScheduleHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function getScheduleSortLap(row) {
+  const lap = row.lap ?? row.lapNumber ?? "";
+  const parsed = parseInt(String(lap), 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getSortedSchedule() {
+  return [...getSchedule()].sort((a, b) => {
+    const lapDiff = getScheduleSortLap(a) - getScheduleSortLap(b);
+    if (lapDiff !== 0) return lapDiff;
+    return (Number(a.id) || 0) - (Number(b.id) || 0);
   });
-  return best;
+}
+
+function buildScheduleCardItem(label, value) {
+  if (!String(value ?? "").trim()) return "";
+  return `<div class="schedule-card__item">
+    <span class="schedule-card__label">${label}</span>
+    <span class="schedule-card__value">${escapeScheduleHtml(value)}</span>
+  </div>`;
 }
 
 function renderSchedule() {
-  const tbody = target("schedule-body");
-  if (!tbody || !state?.settings) return;
+  const container = target("schedule-cards-container");
+  if (!container || !state?.settings) return;
 
   const targetLaps = state?.settings?.targetLaps ?? 10;
   const lapDist = state?.settings?.lapDist ?? 8;
-  const clockIdx = getCurrentScheduleRow();
-  const schedule = getSchedule();
+  const focusLap = getScheduleFocusLapNum();
+  const activeRow = focusLap ? getActiveLapScheduleRow(focusLap) : null;
+  const sortedSchedule = getSortedSchedule();
 
-  tbody.innerHTML = schedule
-    .map((row, i) => {
-      const cls =
-        i === clockIdx && state?.raceStarted
-          ? "current-row"
-          : i < clockIdx && state?.raceStarted
-            ? "completed-row"
-            : "";
+  container.innerHTML = sortedSchedule
+    .map((row) => {
+      const isActive = state?.raceStarted && activeRow && row.id === activeRow.id;
+      const isCompleted = state?.raceStarted && !isActive && isScheduleRowCompleted(row, focusLap);
+      const cardCls = ["schedule-card", isActive ? "is-active" : "", isCompleted ? "is-completed" : ""]
+        .filter(Boolean)
+        .join(" ");
       const editBtn = isAdmin()
-        ? `<button type="button" class="edit-btn" data-action="edit-row" data-row-id="${row.id}">✏️</button>`
+        ? `<button type="button" class="schedule-card__edit" data-action="edit-row" data-row-id="${row.id}" aria-label="ערוך שורה" style="position:absolute;top:8px;left:8px;">✏️</button>`
         : "";
-      return `<tr class="${cls}">
-      <td class="time-cell">${row.planned}</td>
-      <td class="actual-time-cell">${row.actualTime || '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="lap-cell">${row.lap}</td>
-      <td>${row.food || "—"}</td>
-      <td>${row.drink || "—"}</td>
-      <td>${row.supps || "—"}</td>
-      <td>${row.gear || "—"}</td>
-      <td>${row.clothing || "—"}</td>
-      <td style="color:var(--amber);font-size:.75rem">${row.notes || ""}</td>
-      <td>${editBtn}</td>
-    </tr>`;
+      const bodyHtml = [
+        buildScheduleCardItem("🍎 אוכל:", row.food),
+        buildScheduleCardItem("💧 שתייה:", row.drink),
+        buildScheduleCardItem("💊 תוסף:", row.supps),
+      ]
+        .filter(Boolean)
+        .join("");
+
+      return `<article class="${cardCls}" data-schedule-row-id="${row.id}" dir="rtl">
+        ${editBtn}
+        <h3 class="schedule-card__title">סיבוב ${escapeScheduleHtml(row.lap)}</h3>
+        <div class="schedule-card__body">${
+          bodyHtml || '<p class="schedule-card__empty">אין פריטים מוגדרים</p>'
+        }</div>
+      </article>`;
     })
     .join("");
 
@@ -1437,44 +1492,103 @@ function toggleLogistics(i) {
 // ══════════════════════════════════════════════════════
 // EDITOR
 // ══════════════════════════════════════════════════════
+function getScheduleEditorFields() {
+  return {
+    lap: target("edit-lap")?.value?.trim() ?? "",
+    food: target("edit-food")?.value?.trim() ?? "",
+    drink: target("edit-drink")?.value?.trim() ?? "",
+    supps: target("edit-supps")?.value?.trim() ?? "",
+  };
+}
+
+function setScheduleEditorFields(row = {}) {
+  const lapInput = target("edit-lap");
+  const foodInput = target("edit-food");
+  const drinkInput = target("edit-drink");
+  const suppsInput = target("edit-supps");
+  if (lapInput) lapInput.value = row.lap ?? "";
+  if (foodInput) foodInput.value = row.food ?? "";
+  if (drinkInput) drinkInput.value = row.drink ?? "";
+  if (suppsInput) suppsInput.value = row.supps ?? "";
+}
+
+function updateScheduleEditorChrome() {
+  const isNew = state.scheduleEditorIsNew;
+  const title = target("schedule-editor-title");
+  const deleteBtn = target("delete-schedule-row-btn");
+  if (title) title.textContent = isNew ? "➕ שורה חדשה" : "✏️ עריכת שורה";
+  deleteBtn?.classList.toggle("hidden", isNew || !state.editingId);
+}
+
+function openScheduleEditorModal() {
+  const modal = target("schedule-editor-modal");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  updateScheduleEditorChrome();
+}
+
 function openEditor(id) {
   if (!isAdmin()) return;
   const row = getSchedule().find((r) => r.id === id);
   if (!row) return;
   state.editingId = id;
-  target("edit-planned-time").value = row.planned;
-  target("edit-actual-time").value = row.actualTime || "";
-  target("edit-food").value = row.food || "";
-  target("edit-drink").value = row.drink || "";
-  target("edit-supps").value = row.supps || "";
-  target("edit-gear-field").value = row.gear || "";
-  target("edit-clothing").value = row.clothing || "";
-  target("edit-notes").value = row.notes || "";
-  const panel = target("editor-panel");
-  panel.classList.add("open");
-  panel.scrollIntoView({ behavior: "smooth" });
+  state.scheduleEditorIsNew = false;
+  setScheduleEditorFields(row);
+  openScheduleEditorModal();
+}
+
+function openNewScheduleRow() {
+  if (!isAdmin()) return;
+  const focusLap = getScheduleFocusLapNum() || state.currentLapNum || 1;
+  state.editingId = null;
+  state.scheduleEditorIsNew = true;
+  setScheduleEditorFields({ lap: String(focusLap) });
+  openScheduleEditorModal();
 }
 
 function closeEditor() {
   state.editingId = null;
-  target("editor-panel").classList.remove("open");
+  state.scheduleEditorIsNew = false;
+  const modal = target("schedule-editor-modal");
+  if (modal) {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  }
 }
 
-function saveEdit() {
+async function saveEdit() {
   if (!isAdmin()) return;
-  const editingId = state.editingId;
-  if (!editingId) return;
-  store.saveEdit(editingId, {
-    planned: target("edit-planned-time").value,
-    actualTime: target("edit-actual-time").value,
-    food: target("edit-food").value,
-    drink: target("edit-drink").value,
-    supps: target("edit-supps").value,
-    gear: target("edit-gear-field").value,
-    clothing: target("edit-clothing").value,
-    notes: target("edit-notes").value,
-  });
-  closeEditor();
+  const fields = getScheduleEditorFields();
+  if (!fields.lap) {
+    alert("נא להזין מספר סיבוב");
+    return;
+  }
+
+  try {
+    if (state.scheduleEditorIsNew) {
+      await store.addScheduleRow(fields);
+    } else if (state.editingId) {
+      await store.saveEdit(state.editingId, fields);
+    }
+    closeEditor();
+  } catch (error) {
+    console.error("save schedule row failed:", error);
+    alert("שגיאה בשמירת השורה");
+  }
+}
+
+async function deleteScheduleRow() {
+  if (!isAdmin() || state.scheduleEditorIsNew || !state.editingId) return;
+  if (!confirm("האם למחוק שורה זו מהלוח?")) return;
+
+  try {
+    await store.deleteScheduleRow(state.editingId);
+    closeEditor();
+  } catch (error) {
+    console.error("delete schedule row failed:", error);
+    alert("שגיאה במחיקת השורה");
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1770,7 +1884,13 @@ function initActionDelegation() {
         closeEditor();
         break;
       case "save-edit":
-        saveEdit();
+        void saveEdit();
+        break;
+      case "add-schedule-row":
+        openNewScheduleRow();
+        break;
+      case "delete-schedule-row":
+        void deleteScheduleRow();
         break;
       case "save-settings":
         saveSettings();
@@ -1843,8 +1963,10 @@ function exposeUiGlobals() {
   window.toggleGear = toggleGear;
   window.toggleLogistics = toggleLogistics;
   window.openEditor = openEditor;
+  window.openNewScheduleRow = openNewScheduleRow;
   window.closeEditor = closeEditor;
   window.saveEdit = saveEdit;
+  window.deleteScheduleRow = deleteScheduleRow;
   window.saveSettings = saveSettings;
   window.exportData = exportData;
   window.clearData = clearData;
