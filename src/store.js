@@ -1,5 +1,5 @@
 import { db, ref, onValue, set, update } from "./firebase.js";
-import { SCHEDULE_DATA } from "./data.js";
+import { SCHEDULE_DATA, ENVIRONMENT_TRIGGERS } from "./data.js";
 
 const RACE_PATH = "races/wtm2026";
 const raceRef = ref(db, RACE_PATH);
@@ -24,6 +24,66 @@ function normalizeLapLog(raw) {
   }));
 }
 
+function normalizeTriggerTime(time) {
+  if (!time) return "00:00";
+  const parts = String(time).trim().split(":");
+  const h = Math.min(23, Math.max(0, parseInt(parts[0], 10) || 0));
+  const m = Math.min(59, Math.max(0, parseInt(parts[1], 10) || 0));
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function triggersFromDefaults() {
+  return Object.fromEntries(
+    ENVIRONMENT_TRIGGERS.map((trigger) => [
+      trigger.id,
+      {
+        id: trigger.id,
+        time: normalizeTriggerTime(trigger.time),
+        title: trigger.title,
+        text: trigger.text,
+      },
+    ])
+  );
+}
+
+function normalizeTriggers(raw, defaults) {
+  if (!raw) return defaults;
+  if (Array.isArray(raw)) {
+    return Object.fromEntries(
+      raw
+        .filter((trigger) => trigger?.id)
+        .map((trigger) => [
+          trigger.id,
+          {
+            id: trigger.id,
+            time: normalizeTriggerTime(trigger.time),
+            title: trigger.title ?? "",
+            text: trigger.text ?? "",
+          },
+        ])
+    );
+  }
+  if (typeof raw === "object") {
+    return Object.fromEntries(
+      Object.entries(raw)
+        .filter(([, trigger]) => trigger)
+        .map(([key, trigger]) => {
+          const id = trigger.id || key;
+          return [
+            id,
+            {
+              id,
+              time: normalizeTriggerTime(trigger.time),
+              title: trigger.title ?? "",
+              text: trigger.text ?? "",
+            },
+          ];
+        })
+    );
+  }
+  return defaults;
+}
+
 function createDefaultState() {
   return {
     lapLog: [],
@@ -45,6 +105,7 @@ function createDefaultState() {
     },
     raceFinished: false,
     raceFinishedAt: null,
+    triggers: triggersFromDefaults(),
     updatedAt: Date.now(),
   };
 }
@@ -65,6 +126,7 @@ function normalizeState(raw) {
     lapLog: normalizeLapLog(raw.lapLog),
     gearChecked: raw.gearChecked ?? {},
     logisticsChecked: raw.logisticsChecked ?? {},
+    triggers: normalizeTriggers(raw.triggers, defaults.triggers),
   };
 }
 
@@ -89,7 +151,14 @@ function startListening() {
     raceRef,
     (snapshot) => {
       if (snapshot.exists()) {
-        remoteState = normalizeState(snapshot.val());
+        const val = snapshot.val();
+        if (!val.triggers) {
+          const defaults = createDefaultState();
+          remoteState = normalizeState({ ...val, triggers: defaults.triggers });
+          update(raceRef, { triggers: defaults.triggers, updatedAt: Date.now() });
+        } else {
+          remoteState = normalizeState(val);
+        }
       } else {
         remoteState = createDefaultState();
         set(raceRef, remoteState);
@@ -296,6 +365,63 @@ async function clearData() {
   await set(raceRef, createDefaultState());
 }
 
+async function addTrigger(triggerObj) {
+  if (!remoteState || !triggerObj) return null;
+
+  const id = String(triggerObj.id || `trigger_${Date.now()}`).trim();
+  const trigger = {
+    id,
+    time: normalizeTriggerTime(triggerObj.time),
+    title: String(triggerObj.title ?? "").trim(),
+    text: String(triggerObj.text ?? "").trim(),
+  };
+
+  if (!trigger.time || !trigger.title) return null;
+
+  await update(raceRef, {
+    [`triggers/${id}`]: trigger,
+    updatedAt: Date.now(),
+  });
+  return id;
+}
+
+async function deleteTrigger(triggerId) {
+  if (!remoteState || !triggerId) return;
+  await update(raceRef, {
+    [`triggers/${triggerId}`]: null,
+    updatedAt: Date.now(),
+  });
+}
+
+function getTriggerById(triggerId) {
+  if (!remoteState?.triggers || !triggerId) return null;
+  const raw = remoteState.triggers;
+  if (raw[triggerId]) return raw[triggerId];
+  return Object.values(raw).find((trigger) => trigger?.id === triggerId) ?? null;
+}
+
+async function editTrigger(triggerId, updatedData) {
+  if (!remoteState || !triggerId || !updatedData) return false;
+
+  const existing = getTriggerById(triggerId);
+  if (!existing) return false;
+
+  const trigger = {
+    id: triggerId,
+    time: normalizeTriggerTime(updatedData.time ?? existing.time),
+    title: String(updatedData.title ?? existing.title).trim(),
+    text: String(updatedData.text ?? existing.text ?? "").trim(),
+  };
+
+  if (!trigger.time || !trigger.title) return false;
+
+  await update(raceRef, {
+    [`triggers/${triggerId}`]: trigger,
+    updatedAt: Date.now(),
+  });
+  return true;
+}
+
 export const store = {
   RACE_PATH,
   subscribe,
@@ -313,4 +439,7 @@ export const store = {
   saveSettings,
   finishRace,
   clearData,
+  addTrigger,
+  deleteTrigger,
+  editTrigger,
 };

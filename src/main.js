@@ -22,7 +22,7 @@ import {
   startAccessLogsListener,
   stopAccessLogsListener,
 } from "./accessLogs.js";
-import { GEAR_DATA, LOGISTICS_DATA, ADMIN_PIN } from "./data.js";
+import { ADMIN_PIN } from "./data.js";
 import {
   auth,
   db,
@@ -284,6 +284,8 @@ let state = {
   managerTab: "dashboard",
   editingId: null,
   scheduleEditorIsNew: false,
+  editingTriggerId: null,
+  triggerEditorIsNew: false,
 };
 
 function applyRoleUI() {
@@ -930,6 +932,102 @@ function renderViewerCurrentStatus() {
 }
 
 // ══════════════════════════════════════════════════════
+// ENVIRONMENT TIME TRIGGERS
+// ══════════════════════════════════════════════════════
+const TRIGGER_WINDOW_MINUTES = 90;
+
+function parseTimeToMinutes(hhmm) {
+  if (hhmm == null) return NaN;
+  const match = String(hhmm).trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return NaN;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
+  return hours * 60 + minutes;
+}
+
+function getCurrentTimeMinutes() {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function getTriggersList() {
+  if (!state?.triggers) return [];
+  const raw = state.triggers;
+  const list = Array.isArray(raw) ? raw : Object.values(raw);
+  return list
+    .filter((trigger) => trigger?.id && trigger?.time)
+    .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time));
+}
+
+function isTriggerActive(trigger, currentMinutes) {
+  const triggerMinutes = parseTimeToMinutes(trigger.time);
+  if (Number.isNaN(triggerMinutes)) return false;
+  return (
+    currentMinutes >= triggerMinutes &&
+    currentMinutes <= triggerMinutes + TRIGGER_WINDOW_MINUTES
+  );
+}
+
+function getActiveEnvironmentTriggers() {
+  const currentMinutes = getCurrentTimeMinutes();
+  return getTriggersList().filter((trigger) => isTriggerActive(trigger, currentMinutes));
+}
+
+function ensureEnvironmentAlertsContainer() {
+  let container = document.getElementById("environment-alerts-container");
+  if (container) return container;
+
+  const lapCard = document.getElementById("current-lap-card");
+  if (!lapCard?.parentNode) return null;
+
+  container = document.createElement("div");
+  container.id = "environment-alerts-container";
+  container.className = "hidden";
+  container.setAttribute("dir", "rtl");
+  lapCard.parentNode.insertBefore(container, lapCard);
+  return container;
+}
+
+function updateEnvironmentAlerts() {
+  const container = ensureEnvironmentAlertsContainer();
+  if (!container) return;
+
+  const active = getActiveEnvironmentTriggers();
+  container.replaceChildren();
+
+  if (active.length === 0) {
+    container.classList.add("hidden");
+    return;
+  }
+
+  container.classList.remove("hidden");
+
+  for (const trigger of active) {
+    const banner = document.createElement("div");
+    const isNight =
+      trigger.id === "midnight" ||
+      parseTimeToMinutes(trigger.time) < 6 * 60;
+    banner.className = isNight
+      ? "env-alert-banner env-alert-banner--night"
+      : "env-alert-banner";
+    banner.setAttribute("role", "alert");
+    banner.setAttribute("dir", "rtl");
+
+    const title = document.createElement("div");
+    title.className = "env-alert-title";
+    title.textContent = trigger.title;
+
+    const text = document.createElement("div");
+    text.className = "env-alert-text";
+    text.textContent = trigger.text;
+
+    banner.append(title, text);
+    container.appendChild(banner);
+  }
+}
+
+// ══════════════════════════════════════════════════════
 // CLOCK TICK
 // ══════════════════════════════════════════════════════
 setInterval(tick, 1000);
@@ -937,12 +1035,17 @@ setInterval(tick, 1000);
 function tick() {
   const now = Date.now();
   const d = new Date(now);
-  target("live-timer").textContent =
-    String(d.getHours()).padStart(2, "0") +
-    ":" +
-    String(d.getMinutes()).padStart(2, "0") +
-    ":" +
-    String(d.getSeconds()).padStart(2, "0");
+  const liveTimer = target("live-timer");
+  if (liveTimer) {
+    liveTimer.textContent =
+      String(d.getHours()).padStart(2, "0") +
+      ":" +
+      String(d.getMinutes()).padStart(2, "0") +
+      ":" +
+      String(d.getSeconds()).padStart(2, "0");
+  }
+
+  updateEnvironmentAlerts();
 
   if (!state?.settings) return;
 
@@ -1016,10 +1119,11 @@ function tick() {
 const CONTENT_VIEWS = {
   dashboard: "view-dashboard",
   log: "view-log",
-  gear: "view-gear",
+  alerts: "view-alerts",
 };
 
 function switchTab(tab) {
+  if (tab === "gear") tab = "alerts";
   state.managerTab = tab;
   state.mode = "manager";
   hideAllShellViews();
@@ -1140,9 +1244,9 @@ function setMode(m) {
     return;
   }
 
-  if (m === "gear") {
+  if (m === "alerts" || m === "gear") {
     viewEl("manager").classList.add("active");
-    switchTab("gear");
+    switchTab("alerts");
     closeKebabMenu();
     renderMenu();
     return;
@@ -1249,6 +1353,9 @@ function initKebabMenu() {
     if (e.key === "Escape") closeKebabMenu();
     if (e.key === "Escape" && target("schedule-editor-modal")?.classList.contains("open")) {
       closeEditor();
+    }
+    if (e.key === "Escape" && target("trigger-editor-modal")?.classList.contains("open")) {
+      closeTriggerEditor();
     }
   });
 }
@@ -1457,36 +1564,171 @@ function renderLive() {
 }
 
 // ══════════════════════════════════════════════════════
-// GEAR
+// ALERTS (TIME TRIGGERS) MANAGER
 // ══════════════════════════════════════════════════════
-function renderGear() {
-  target("gear-grid").innerHTML = GEAR_DATA.map((item) => {
-    const chk = !!state.gearChecked[item.id];
-    const toggleAttr = isAdmin() ? `data-action="toggle-gear" data-gear-id="${item.id}"` : "";
-    return `<div class="gear-item ${chk ? "checked" : ""} ${item.mandatory ? "mandatory" : "optional"}" ${toggleAttr}>
-      <div class="gear-check">${chk ? "✓" : ""}</div>
-      <div><div class="category-badge">${item.cat}</div><div class="gear-name">${item.name}</div>${item.desc ? `<div class="gear-desc">${item.desc}</div>` : ""}</div>
-    </div>`;
-  }).join("");
-
-  target("logistics-grid").innerHTML = LOGISTICS_DATA.map((item, i) => {
-    const chk = !!state.logisticsChecked[i];
-    const toggleAttr = isAdmin() ? `data-action="toggle-logistics" data-logistics-index="${i}"` : "";
-    return `<div class="gear-item ${chk ? "checked" : ""} ${item.mandatory ? "mandatory" : "optional"}" ${toggleAttr}>
-      <div class="gear-check">${chk ? "✓" : ""}</div>
-      <div><div class="gear-name">${item.name}</div>${item.desc ? `<div class="gear-desc">${item.desc}</div>` : ""}</div>
-    </div>`;
-  }).join("");
+function getTriggerEditorFields() {
+  return {
+    time: target("trigger-editor-time")?.value?.trim() ?? "",
+    title: target("trigger-editor-title-input")?.value?.trim() ?? "",
+    text: target("trigger-editor-text")?.value?.trim() ?? "",
+  };
 }
 
-function toggleGear(id) {
-  if (!isAdmin()) return;
-  store.toggleGear(id);
+function setTriggerEditorFields(trigger = {}) {
+  const timeInput = target("trigger-editor-time");
+  const titleInput = target("trigger-editor-title-input");
+  const textInput = target("trigger-editor-text");
+  if (timeInput) timeInput.value = trigger.time ?? "";
+  if (titleInput) titleInput.value = trigger.title ?? "";
+  if (textInput) textInput.value = trigger.text ?? "";
 }
 
-function toggleLogistics(i) {
+function updateTriggerEditorChrome() {
+  const titleEl = target("trigger-editor-title");
+  if (titleEl) {
+    titleEl.textContent = state.triggerEditorIsNew ? "➕ התרעה חדשה" : "✏️ עריכת התרעה";
+  }
+}
+
+function openTriggerEditorModal() {
+  const modal = target("trigger-editor-modal");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  updateTriggerEditorChrome();
+  target("trigger-editor-time")?.focus();
+}
+
+function closeTriggerEditor() {
+  state.editingTriggerId = null;
+  state.triggerEditorIsNew = false;
+  setTriggerEditorFields();
+  const modal = target("trigger-editor-modal");
+  if (modal) {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+function openNewTrigger() {
   if (!isAdmin()) return;
-  store.toggleLogistics(i);
+  state.editingTriggerId = null;
+  state.triggerEditorIsNew = true;
+  setTriggerEditorFields();
+  openTriggerEditorModal();
+}
+
+function openEditTrigger(triggerId) {
+  if (!isAdmin() || !triggerId) return;
+  const trigger = getTriggersList().find((item) => item.id === triggerId);
+  if (!trigger) return;
+  state.editingTriggerId = triggerId;
+  state.triggerEditorIsNew = false;
+  setTriggerEditorFields(trigger);
+  openTriggerEditorModal();
+}
+
+async function saveTriggerEditor(e) {
+  if (e) e.preventDefault();
+  if (!isAdmin()) return;
+
+  const fields = getTriggerEditorFields();
+  if (!fields.time || !fields.title) {
+    alert("נא למלא שעה וכותרת");
+    return;
+  }
+
+  try {
+    if (state.triggerEditorIsNew) {
+      await store.addTrigger(fields);
+    } else if (state.editingTriggerId) {
+      await store.editTrigger(state.editingTriggerId, fields);
+    }
+    closeTriggerEditor();
+  } catch (error) {
+    console.error("saveTriggerEditor failed:", error);
+    alert("שגיאה בשמירת ההתרעה");
+  }
+}
+
+function renderTriggers() {
+  const listEl = target("triggers-list");
+  if (!listEl) return;
+
+  const triggers = getTriggersList();
+  const canEdit = isAdmin();
+  target("triggers-add-bar")?.classList.toggle("hidden", !canEdit);
+
+  listEl.replaceChildren();
+
+  if (!triggers.length) {
+    const empty = document.createElement("div");
+    empty.className = "triggers-empty";
+    empty.textContent = "אין התרעות מוגדרות";
+    listEl.appendChild(empty);
+    return;
+  }
+
+  for (const trigger of triggers) {
+    const card = document.createElement("article");
+    card.className = "trigger-card";
+    card.setAttribute("dir", "rtl");
+
+    if (canEdit) {
+      const actions = document.createElement("div");
+      actions.className = "trigger-card-actions";
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "trigger-card-icon-btn";
+      editBtn.dataset.action = "edit-trigger";
+      editBtn.dataset.triggerId = trigger.id;
+      editBtn.setAttribute("aria-label", "עריכה");
+      editBtn.textContent = "✏️";
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "trigger-card-icon-btn trigger-card-icon-btn--danger";
+      deleteBtn.dataset.action = "delete-trigger";
+      deleteBtn.dataset.triggerId = trigger.id;
+      deleteBtn.setAttribute("aria-label", "מחק");
+      deleteBtn.textContent = "🗑️";
+
+      actions.append(editBtn, deleteBtn);
+      card.appendChild(actions);
+    }
+
+    const timeEl = document.createElement("div");
+    timeEl.className = "trigger-card-time";
+    timeEl.textContent = trigger.time;
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "trigger-card-title";
+    titleEl.textContent = trigger.title;
+
+    card.append(timeEl, titleEl);
+
+    if (trigger.text) {
+      const textEl = document.createElement("div");
+      textEl.className = "trigger-card-text";
+      textEl.textContent = trigger.text;
+      card.appendChild(textEl);
+    }
+
+    listEl.appendChild(card);
+  }
+}
+
+async function handleDeleteTrigger(triggerId) {
+  if (!isAdmin() || !triggerId) return;
+  if (!confirm("למחוק התרעה זו?")) return;
+
+  try {
+    await store.deleteTrigger(triggerId);
+  } catch (error) {
+    console.error("deleteTrigger failed:", error);
+    alert("שגיאה במחיקת התרעה");
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1635,7 +1877,7 @@ function renderAll() {
   applyRoleUI();
   renderSchedule();
   renderLapLog();
-  renderGear();
+  renderTriggers();
   renderLive();
   renderProgressBars();
   updateLockBadge();
@@ -1643,6 +1885,7 @@ function renderAll() {
   updateFinishRaceButton();
   renderPaceStatus();
   renderViewerCurrentStatus();
+  updateEnvironmentAlerts();
 }
 
 function updateFinishRaceButton() {
@@ -1919,11 +2162,17 @@ function initActionDelegation() {
       case "edit-row":
         openEditor(Number(el.dataset.rowId));
         break;
-      case "toggle-gear":
-        toggleGear(Number(el.dataset.gearId));
+      case "open-new-trigger":
+        openNewTrigger();
         break;
-      case "toggle-logistics":
-        toggleLogistics(Number(el.dataset.logisticsIndex));
+      case "edit-trigger":
+        openEditTrigger(el.dataset.triggerId);
+        break;
+      case "close-trigger-editor":
+        closeTriggerEditor();
+        break;
+      case "delete-trigger":
+        handleDeleteTrigger(el.dataset.triggerId);
         break;
       default:
         break;
@@ -1949,6 +2198,9 @@ function initApp() {
     isAdmin,
     shouldShowAdminTicker: shouldShowAdminCheerTicker,
   });
+
+  target("trigger-editor-form")?.addEventListener("submit", saveTriggerEditor);
+  updateEnvironmentAlerts();
 }
 
 function exposeUiGlobals() {
@@ -1960,8 +2212,6 @@ function exposeUiGlobals() {
   window.btnStartClick = btnStartClick;
   window.btnFinishClick = btnFinishClick;
   window.resetRace = resetRace;
-  window.toggleGear = toggleGear;
-  window.toggleLogistics = toggleLogistics;
   window.openEditor = openEditor;
   window.openNewScheduleRow = openNewScheduleRow;
   window.closeEditor = closeEditor;

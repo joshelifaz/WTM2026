@@ -1023,6 +1023,216 @@ body:not(.is-admin) .btn-danger {
   box-shadow: none;
 }
 
+#environment-alerts-container:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.triggers-help {
+  font-size: 0.8rem;
+  color: var(--text2);
+  margin: 0 0 1rem;
+  line-height: 1.45;
+  text-align: right;
+  direction: rtl;
+}
+
+.alerts-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 5rem;
+}
+
+.triggers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.triggers-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+  padding: 28px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.trigger-card {
+  position: relative;
+  padding: 14px 14px 14px 56px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: 4px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  text-align: right;
+  direction: rtl;
+}
+
+.trigger-card-actions {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  direction: ltr;
+}
+
+.trigger-card-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.trigger-card-icon-btn:hover {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.trigger-card-icon-btn--danger:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.trigger-card-time {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+  direction: ltr;
+  text-align: right;
+}
+
+.trigger-card-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+  padding-left: 0;
+}
+
+.trigger-card-text {
+  font-size: 0.8rem;
+  color: var(--text2);
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+.triggers-add-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 0 4px;
+  margin-top: auto;
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  z-index: 2;
+}
+
+.triggers-add-fab {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(224, 90, 27, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.triggers-add-fab:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(224, 90, 27, 0.4);
+}
+
+.trigger-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  direction: rtl;
+  text-align: right;
+}
+
+body.dark-mode .trigger-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+body.dark-mode .trigger-card-icon-btn {
+  background: var(--surface2);
+  border-color: var(--border);
+}
+
+@keyframes env-alert-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.82; }
+}
+
+.env-alert-banner {
+  background: #fffbeb;
+  border-right: 4px solid #f59e0b;
+  color: #78350f;
+  padding: 0.75rem;
+  border-radius: 0.5rem 0 0 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  animation: env-alert-pulse 2s ease-in-out infinite;
+  direction: rtl;
+  text-align: right;
+}
+
+.env-alert-banner--night {
+  background: #eff6ff;
+  border-right-color: #3b82f6;
+  color: #1e3a8a;
+}
+
+.env-alert-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  margin-bottom: 0.25rem;
+}
+
+.env-alert-text {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+body.dark-mode .env-alert-banner {
+  background: #422006;
+  border-right-color: #f59e0b;
+  color: #fef3c7;
+}
+
+body.dark-mode .env-alert-banner--night {
+  background: #172554;
+  border-right-color: #60a5fa;
+  color: #dbeafe;
+}
+
 .card-title {
   color: var(--text2);
 }
