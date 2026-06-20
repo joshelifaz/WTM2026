@@ -92,6 +92,21 @@ body {
   display: none !important;
 }
 
+#offline-status-banner {
+  background: #dc2626;
+  color: #fff;
+  text-align: center;
+  padding: 0.375rem 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  position: sticky;
+  top: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 [data-target="main-app"].hidden {
   display: none !important;
 }
