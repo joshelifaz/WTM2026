@@ -211,6 +211,8 @@ function createGalleryItem(key, item, includeDelete = false) {
   img.src = item.imageUrl;
   img.alt = item.caption || "עדכון מהשטח";
   img.loading = "lazy";
+  img.style.cursor = "pointer";
+  img.addEventListener("click", () => openLightbox(item.imageUrl));
 
   if (includeDelete) {
     const mediaWrap = document.createElement("div");
@@ -363,4 +365,43 @@ export function stopLiveUpdatesListener() {
  */
 export function initLiveUpdates({ isAdmin }) {
   isAdminFn = isAdmin;
+}
+
+export function openLightbox(url) {
+  const lightbox = queryTarget("gallery-lightbox");
+  const img = queryTarget("lightbox-img");
+  const downloadBtn = document.getElementById("lightbox-download-btn");
+
+  if (!lightbox || !img) return;
+
+  lightbox.classList.remove("hidden");
+  img.src = url;
+  if (downloadBtn) downloadBtn.dataset.currentUrl = url;
+}
+
+export function closeLightbox() {
+  const lightbox = queryTarget("gallery-lightbox");
+  const img = queryTarget("lightbox-img");
+
+  if (!lightbox) return;
+
+  lightbox.classList.add("hidden");
+  if (img) img.src = "";
+}
+
+export function downloadLightboxImage() {
+  const downloadBtn = document.getElementById("lightbox-download-btn");
+  const url = downloadBtn?.dataset.currentUrl;
+  if (!url) return;
+
+  fetch(url)
+    .then((res) => res.blob())
+    .then((blob) => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "WTM2026_LiveUpdate_" + Date.now() + ".jpg";
+      link.click();
+      URL.revokeObjectURL(link.href);
+    })
+    .catch((err) => console.error("Lightbox download failed:", err));
 }
