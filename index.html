@@ -166,6 +166,21 @@
   .schedule-editor-close{background:none;border:none;color:var(--muted);font-size:1.4rem;line-height:1;cursor:pointer;padding:0 4px;}
   .schedule-editor-close:hover{color:var(--text);}
   .schedule-editor-form{grid-template-columns:1fr 1fr;gap:10px;}
+  /* SCHEDULE CARDS */
+  .schedule-cards-container{display:flex;flex-direction:column;gap:10px;margin-top:12px;}
+  .schedule-card{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid #f3f4f6;padding:12px;position:relative;direction:rtl;text-align:right;transition:box-shadow .2s,border-color .2s,opacity .2s,background .2s;}
+  .schedule-card.is-active{border-color:#f97316;background:#fff7ed;box-shadow:0 4px 14px rgba(249,115,22,.18);}
+  .schedule-card.is-completed{opacity:.55;background:#f9fafb;}
+  .schedule-card__header{margin:0;padding:0;}
+  .schedule-card__title{margin:0 0 8px;padding-inline-end:4px;width:100%;box-sizing:border-box;font-size:1.125rem;font-weight:700;color:var(--text);font-family:'Inter',sans-serif;text-align:right;line-height:1.3;}
+  .schedule-card__edit{position:absolute;top:8px;left:8px;background:#fff;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 6px;cursor:pointer;font-size:.75rem;line-height:1;box-shadow:0 1px 2px rgba(0,0,0,.04);z-index:1;}
+  .schedule-card__edit:hover{border-color:var(--amber);color:var(--amber);}
+  .schedule-card__body{display:flex;flex-direction:column;direction:rtl;}
+  .schedule-card__item{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;font-size:.875rem;line-height:1.35;direction:rtl;text-align:right;}
+  .schedule-card__item:last-child{margin-bottom:0;}
+  .schedule-card__label{font-weight:600;flex-shrink:0;text-align:right;color:#1f2937;white-space:nowrap;}
+  .schedule-card__value{flex:1;min-width:0;color:#374151;text-align:right;line-height:1.35;word-break:break-word;}
+  .schedule-card__empty{margin:0;font-size:.875rem;color:var(--muted);text-align:right;}
   .schedule-table-actions{display:flex;justify-content:flex-start;padding:10px 0 4px;}
   .schedule-add-btn{font-size:.82rem;padding:8px 14px;}
   .btn-delete-schedule{margin-inline-end:auto;background:transparent;color:#dc2626;border:1px solid #fecaca;padding:8px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;font-size:.82rem;}
@@ -272,6 +287,7 @@
   /* ROLE-BASED UI */
   body.view-only .action-btn,
   body.view-only .edit-btn,
+  body.view-only .schedule-card__edit,
   body.view-only .editor-panel,
   body.view-only .schedule-editor-modal,
   body.view-only .settings-admin-only { display: none !important; }
@@ -349,7 +365,11 @@
   body.dark-mode .schedule-table td{background:var(--surface);color:var(--text);}
   body.dark-mode .schedule-table tr:hover td{background:#1e2a3d;}
   body.dark-mode .schedule-table tr.current-row td{background:#1a2740;}
-  body.dark-mode .schedule-table tr.completed-row td{background:#121a28;}
+  body.dark-mode .schedule-card{background:var(--surface);border-color:var(--border);}
+  body.dark-mode .schedule-card.is-active{background:#2a1f14;border-color:#f97316;}
+  body.dark-mode .schedule-card.is-completed{background:#121a28;}
+  body.dark-mode .schedule-card__edit{background:var(--surface);}
+  body.dark-mode .schedule-card__value{color:var(--text);}
   body.dark-mode .lap-log-header{background:#141c2b;}
   body.dark-mode .next-lap-strip{background:#141c2b;}
   body.dark-mode #editor-panel{background:#1a2332;}
@@ -703,19 +723,12 @@
     <div data-target="view-log" class="content-view hidden">
     <div id="manager-panel-log" class="manager-panel" data-target="manager-panel" data-panel="log">
     <div class="section-title">לוח זמנים מלא</div>
-    <div style="overflow-x:auto;">
-      <table class="schedule-table" id="schedule-table">
-        <thead><tr>
-          <th>שעה</th><th>בפועל</th><th>סיבוב</th><th>אוכל</th>
-          <th>שתייה</th><th>תוספים</th><th>ציוד</th><th>ביגוד</th><th>הערות</th><th></th>
-        </tr></thead>
-        <tbody id="schedule-body" data-target="schedule-body"></tbody>
-      </table>
+    <div id="schedule-container" data-target="schedule-container" dir="rtl">
+      <div id="schedule-cards-container" class="schedule-cards-container" data-target="schedule-cards-container"></div>
     </div>
     <div class="schedule-table-actions" dir="rtl">
       <button type="button" class="btn-save schedule-add-btn" data-action="add-schedule-row">➕ הוסף שורה חדשה</button>
     </div>
-    <div class="scroll-hint">← גלול לפרטים נוספים</div>
 
     <div class="section-title">יומן סיבובים</div>
     <div class="lap-log">

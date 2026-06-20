@@ -1256,36 +1256,71 @@ function initKebabMenu() {
 // ══════════════════════════════════════════════════════
 // SCHEDULE
 // ══════════════════════════════════════════════════════
+function escapeScheduleHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function getScheduleSortLap(row) {
+  const lap = row.lap ?? row.lapNumber ?? "";
+  const parsed = parseInt(String(lap), 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function getSortedSchedule() {
+  return [...getSchedule()].sort((a, b) => {
+    const lapDiff = getScheduleSortLap(a) - getScheduleSortLap(b);
+    if (lapDiff !== 0) return lapDiff;
+    return (Number(a.id) || 0) - (Number(b.id) || 0);
+  });
+}
+
+function buildScheduleCardItem(label, value) {
+  if (!String(value ?? "").trim()) return "";
+  return `<div class="schedule-card__item">
+    <span class="schedule-card__label">${label}</span>
+    <span class="schedule-card__value">${escapeScheduleHtml(value)}</span>
+  </div>`;
+}
+
 function renderSchedule() {
-  const tbody = target("schedule-body");
-  if (!tbody || !state?.settings) return;
+  const container = target("schedule-cards-container");
+  if (!container || !state?.settings) return;
 
   const targetLaps = state?.settings?.targetLaps ?? 10;
   const lapDist = state?.settings?.lapDist ?? 8;
   const focusLap = getScheduleFocusLapNum();
   const activeRow = focusLap ? getActiveLapScheduleRow(focusLap) : null;
-  const schedule = getSchedule();
+  const sortedSchedule = getSortedSchedule();
 
-  tbody.innerHTML = schedule
+  container.innerHTML = sortedSchedule
     .map((row) => {
       const isActive = state?.raceStarted && activeRow && row.id === activeRow.id;
       const isCompleted = state?.raceStarted && !isActive && isScheduleRowCompleted(row, focusLap);
-      const cls = isActive ? "current-row" : isCompleted ? "completed-row" : "";
+      const cardCls = ["schedule-card", isActive ? "is-active" : "", isCompleted ? "is-completed" : ""]
+        .filter(Boolean)
+        .join(" ");
       const editBtn = isAdmin()
-        ? `<button type="button" class="edit-btn" data-action="edit-row" data-row-id="${row.id}">✏️</button>`
+        ? `<button type="button" class="schedule-card__edit" data-action="edit-row" data-row-id="${row.id}" aria-label="ערוך שורה" style="position:absolute;top:8px;left:8px;">✏️</button>`
         : "";
-      return `<tr class="${cls}">
-      <td class="time-cell">${row.planned}</td>
-      <td class="actual-time-cell">${row.actualTime || '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="lap-cell">${row.lap}</td>
-      <td>${row.food || "—"}</td>
-      <td>${row.drink || "—"}</td>
-      <td>${row.supps || "—"}</td>
-      <td>${row.gear || "—"}</td>
-      <td>${row.clothing || "—"}</td>
-      <td style="color:var(--amber);font-size:.75rem">${row.notes || ""}</td>
-      <td>${editBtn}</td>
-    </tr>`;
+      const bodyHtml = [
+        buildScheduleCardItem("🍎 אוכל:", row.food),
+        buildScheduleCardItem("💧 שתייה:", row.drink),
+        buildScheduleCardItem("💊 תוסף:", row.supps),
+      ]
+        .filter(Boolean)
+        .join("");
+
+      return `<article class="${cardCls}" data-schedule-row-id="${row.id}" dir="rtl">
+        ${editBtn}
+        <h3 class="schedule-card__title">סיבוב ${escapeScheduleHtml(row.lap)}</h3>
+        <div class="schedule-card__body">${
+          bodyHtml || '<p class="schedule-card__empty">אין פריטים מוגדרים</p>'
+        }</div>
+      </article>`;
     })
     .join("");
 
