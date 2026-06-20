@@ -2,8 +2,18 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /live_updates/{fileName} {
-      allow read: if true;
-      allow write: if true;
+      // Viewers must be logged in via Google Auth to read
+      allow read: if request.auth != null;
+
+      // Write/Delete restricted to Super Admin UID or Admin Emails
+      allow write, delete: if request.auth != null &&
+        (
+          request.auth.uid == 'axbbTlDiG9Pg1xfHk5tWrDlPUeJ2' ||
+          request.auth.token.email in ['barzavi@gmail.com', 'alonc.ac@gmail.com']
+        ) &&
+        // Validation: File must be under 1MB and must be an image
+        request.resource.size < 1 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
     }
   }
 }
