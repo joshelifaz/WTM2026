@@ -1,6 +1,6 @@
 # Features — Backlog חי
 
-> עדכון אחרון: 2026-06-20 · ענף נוכחי: `feat/gallery-ux-enhancements`
+> עדכון אחרון: 2026-06-20 · ענף נוכחי: `chore/security-rules-hardening`
 
 | ID | Feature Name | Priority | Status | Branch |
 |----|-------------|----------|--------|--------|
@@ -23,21 +23,21 @@
 | F-017 | Admin UID Production Fix | P0 | Done | `fix/admin-uid-production` |
 | F-018 | Menu UX Polishing | P2 | Done | `chore/menu-ux-polishing` |
 | F-019 | Gallery Lightbox + Download | P1 | In Progress | `feat/gallery-ux-enhancements` |
-| F-020 | Storage Rules Hardening | P1 | Backlog | `chore/security-rules-hardening` |
+| F-020 | Storage Rules Hardening | P1 | In Progress | `chore/security-rules-hardening` |
 | F-021 | PWA / Service Worker (offline מלא) | P3 | Backlog | — |
 | F-022 | Gallery Swipe Navigation (בתוך Lightbox) | P3 | Backlog | — |
 | F-023 | Push Notifications (טריגרים / עדכונים) | P3 | Backlog | — |
 
 ---
 
-## פירוט ענף נוכחי (F-019)
+## פירוט ענף נוכחי (F-020)
 
-**Gallery Lightbox + Download** — `feat/gallery-ux-enhancements`
+**Storage Rules Hardening** — `chore/security-rules-hardening`
 
-- [x] Lightbox full-screen עם כפתור סגירה (×)
-- [x] כפתור הורדה (↓) עם fetch→blob→download
-- [x] CSS vanilla בלבד, תואם dark/light mode
-- [x] חיווט ב-`initActionDelegation()` + export ל-`window`
+- [x] קריאה רק למשתמשים מחוברים (`request.auth != null`)
+- [x] כתיבה/מחיקה ל-Super Admin UID + מיילי Admin מורשים
+- [x] ולידציה: מקסימום 1MB, `contentType` חייב להיות `image/*`
+- [ ] Deploy ל-Production (`firebase deploy --only storage`)
 - [ ] Merge ל-`main`
 
 ---
