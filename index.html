@@ -451,6 +451,8 @@
     direction:rtl;
   }
   .admin-cheer-ticker.hidden{display:none;}
+  [data-target="cheer-ticker"].admin-cheer-ticker--viewer-slot{margin-bottom:0;}
+  [data-target="cheer-ticker"]:empty{display:none;min-height:0;border:none;background:transparent;}
   .admin-cheer-ticker__label{
     flex-shrink:0;
     display:flex;
@@ -625,6 +627,8 @@
   <button type="button" class="content-tab" data-action="switch-tab" data-tab="log">יומן</button>
   <button type="button" class="content-tab" data-action="switch-tab" data-tab="alerts">🔔 התרעות</button>
 </nav>
+
+<div class="admin-cheer-ticker admin-cheer-ticker--viewer-slot" data-target="cheer-ticker"></div>
 
 <nav data-target="viewer-tabs" class="tabs hidden" dir="rtl" aria-label="תצוגת צופה">
   <button type="button" class="content-tab active" data-action="nav-viewer-status">סטטוס מרוץ</button>
