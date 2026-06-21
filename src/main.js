@@ -769,14 +769,25 @@ function renderProgressBars(now = Date.now()) {
     return;
   }
 
-  const { segments, raceMs, elapsedPct } = buildTimelineSegments(now);
+  const { segments, raceMs, raceStart, elapsedPct } = buildTimelineSegments(now);
   renderSegmentBar("time-progress-bar", segments, raceMs);
-  renderSegmentBar("laps-progress-bar", segments, raceMs, "lap");
 
-  setAllTargetText("time-progress-pct", `${Math.round(elapsedPct)}%`);
+  const elapsedMs = Math.max(0, now - raceStart);
+  const elapsedHrs = Math.floor(elapsedMs / 3600000);
+  const elapsedMins = Math.floor((elapsedMs % 3600000) / 60000).toString().padStart(2, "0");
+  setAllTargetText("time-progress-pct", `זמן: ${elapsedHrs}:${elapsedMins} | ${Math.round(elapsedPct)}%`);
 
-  const lapsDone = getLapLog().filter((lap) => lap.breakEnd).length;
+  const lapsDone = getLapLog().filter((lap) => lap.lapEnd).length;
   setAllTargetText("laps-progress-pct", `${lapsDone}/${state.settings.targetLaps}`);
+
+  const targetLaps = parseInt(state.settings?.targetLaps) || 10;
+  let lapsHtml = "";
+  const segmentWidth = 100 / Math.max(1, targetLaps);
+  for (let i = 0; i < targetLaps; i++) {
+    const isDone = i < lapsDone;
+    lapsHtml += `<div class="progress-segment ${isDone ? "lap" : ""}" style="width:${segmentWidth}%; border-right:1px solid rgba(255,255,255,0.4)"></div>`;
+  }
+  setAllTargetHtml("laps-progress-bar", lapsHtml);
 }
 
 function updateCurrentLapCard() {
