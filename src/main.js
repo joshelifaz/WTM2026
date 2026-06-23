@@ -1770,6 +1770,8 @@ function getScheduleEditorFields() {
     food: target("edit-food")?.value?.trim() ?? "",
     drink: target("edit-drink")?.value?.trim() ?? "",
     supps: target("edit-supps")?.value?.trim() ?? "",
+    gear: document.getElementById("edit-gear")?.value.trim() || "",
+    clothing: "",
   };
 }
 
@@ -1782,6 +1784,8 @@ function setScheduleEditorFields(row = {}) {
   if (foodInput) foodInput.value = row.food ?? "";
   if (drinkInput) drinkInput.value = row.drink ?? "";
   if (suppsInput) suppsInput.value = row.supps ?? "";
+  const gearEl = document.getElementById("edit-gear");
+  if (gearEl) gearEl.value = [row.gear, row.clothing].filter(Boolean).join(" · ") || "";
 }
 
 function updateScheduleEditorChrome() {
