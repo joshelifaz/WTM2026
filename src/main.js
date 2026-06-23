@@ -325,16 +325,6 @@ function isAccessLogsViewVisible() {
 }
 
 function shouldShowAdminCheerTicker() {
-  // Hide on overlays
-  if (typeof isUploadViewVisible === "function" && isUploadViewVisible()) return false;
-  if (typeof isAccessLogsViewVisible === "function" && isAccessLogsViewVisible()) return false;
-
-  // Admin in manager mode: show only on dashboard
-  if (isAdmin() && state.mode === "manager") {
-    return state.managerTab === "dashboard";
-  }
-
-  // Viewers (or admins in viewer mode): always show
   return true;
 }
 
