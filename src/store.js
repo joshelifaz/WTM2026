@@ -324,6 +324,8 @@ async function saveEdit(id, patch) {
           food: patch.food ?? row.food ?? "",
           drink: patch.drink ?? row.drink ?? "",
           supps: patch.supps ?? row.supps ?? "",
+          gear: patch.gear ?? row.gear ?? "",
+          clothing: patch.clothing ?? "",
         }
       : row
   );
@@ -341,8 +343,8 @@ async function addScheduleRow(newRowData) {
     supps: newRowData.supps ?? "",
     planned: "",
     day: "",
-    gear: "",
-    clothing: "",
+    gear: newRowData.gear ?? "",
+    clothing: newRowData.clothing ?? "",
     notes: "",
   };
   await update(raceRef, { schedule: [...schedule, newRow], updatedAt: Date.now() });
