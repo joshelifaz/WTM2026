@@ -2243,7 +2243,7 @@ function initApp() {
   }
 
   initLiveUpdates({ isAdmin });
-  initCheers({
+  initCheers(() => isAdmin() && state.mode === "manager", {
     getAuthUser: () => authUser,
     isAdmin,
     shouldShowAdminTicker: shouldShowAdminCheerTicker,
