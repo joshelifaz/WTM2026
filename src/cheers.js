@@ -1,3 +1,4 @@
+import { query, limitToLast } from "firebase/database";
 import { db, ref, onValue, get, push, set, remove } from "./firebase.js";
 
 const CHEERS_PATH = "cheers";
@@ -122,6 +123,13 @@ let cachedEntries = [];
 let getAuthUserFn = () => null;
 let isAdminFn = () => false;
 let shouldShowAdminTickerFn = () => false;
+let resolveIsManager = () => false;
+
+function getCheersTargetQuery() {
+  const cheersRef = ref(db, CHEERS_PATH);
+  const isManager = resolveIsManager();
+  return isManager ? query(cheersRef) : query(cheersRef, limitToLast(50));
+}
 
 function stopRelativeTimeTicker() {
   if (relativeTimeTimer) {
@@ -165,7 +173,8 @@ export function syncAdminCheerTickerVisibility() {
 
 async function hydrateCheersFromDatabase() {
   try {
-    const snapshot = await get(ref(db, CHEERS_PATH));
+    const targetQuery = getCheersTargetQuery();
+    const snapshot = await get(targetQuery);
     handleCheersSnapshot(snapshot);
   } catch (error) {
     console.error("cheers initial fetch error:", error);
@@ -180,7 +189,8 @@ export function startCheersListener() {
 
   void hydrateCheersFromDatabase();
 
-  unsubscribe = onValue(ref(db, CHEERS_PATH), handleCheersSnapshot, (err) => {
+  const targetQuery = getCheersTargetQuery();
+  unsubscribe = onValue(targetQuery, handleCheersSnapshot, (err) => {
     console.error("cheers listener error:", err);
   });
   startRelativeTimeTicker();
@@ -247,13 +257,16 @@ export async function handleDeleteCheer(cheerId) {
 }
 
 /**
+ * @param {boolean | (() => boolean)} isManager
  * @param {{
  *   getAuthUser: () => import("firebase/auth").User | null;
  *   isAdmin: () => boolean;
  *   shouldShowAdminTicker: () => boolean;
- * }} options
+ * }} [options]
  */
-export function initCheers({ getAuthUser, isAdmin, shouldShowAdminTicker }) {
+export function initCheers(isManager = false, { getAuthUser, isAdmin, shouldShowAdminTicker } = {}) {
+  resolveIsManager = typeof isManager === "function" ? isManager : () => Boolean(isManager);
+
   getAuthUserFn = getAuthUser;
   isAdminFn = isAdmin;
   shouldShowAdminTickerFn = shouldShowAdminTicker || (() => false);
